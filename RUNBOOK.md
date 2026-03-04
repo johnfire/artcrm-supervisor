@@ -153,6 +153,44 @@ followup_agent (next run):
 
 ---
 
+## Importing Existing Marketing Studies
+
+If you already have venue research as markdown files, import them directly instead of running the research agent:
+
+```bash
+uv run python scripts/import_studies.py
+```
+
+This reads the 6 city markdown files in `~/ai-workzone/art-marketing-by-city/`, uses the LLM to extract every venue, and saves them as `status=candidate`. Safe to re-run — duplicates (same name + city) are silently skipped.
+
+After import, run the supervisor normally. The scout agent will score and promote them; the research step will find nothing new to add for the same cities (also harmless).
+
+To skip the research step entirely, clear the target list in [src/supervisor/targets.py](src/supervisor/targets.py):
+
+```python
+RESEARCH_TARGETS = []
+```
+
+To add new cities later, add entries back.
+
+---
+
+## Scout Threshold — Controlling Outreach Volume
+
+The scout agent scores each candidate 0–100 for mission fit. The threshold controls which ones are promoted to `status=cold` for outreach.
+
+Set it in `.env`:
+
+```
+SCOUT_THRESHOLD=75   # start here — best venues only
+SCOUT_THRESHOLD=60   # lower when you want more volume
+SCOUT_THRESHOLD=50   # cast a wide net
+```
+
+Default is `75`. Contacts that score below the threshold are set to `status=dropped` and won't be contacted. They remain in the database — if you lower the threshold later and re-run the scout agent against a fresh import, they can be re-evaluated.
+
+---
+
 ## Configuring Research Targets
 
 Edit [src/supervisor/targets.py](src/supervisor/targets.py):
