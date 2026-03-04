@@ -1,0 +1,145 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --border: #2e2e2e;
+  --text: #e0e0e0;
+  --muted: #888;
+  --accent: #4a9eff;
+  --danger: #e05555;
+  --success: #4caf50;
+  --warn: #e0a840;
+  --font: 'Courier New', Courier, monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.nav-brand { font-weight: bold; color: var(--accent); margin-right: auto; }
+nav a { color: var(--muted); text-decoration: none; }
+nav a:hover, nav a.active { color: var(--text); }
+
+main { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+
+.page-header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.page-header h1 { font-size: 1.2rem; }
+
+.muted { color: var(--muted); }
+.small { font-size: 0.85em; }
+.empty { color: var(--muted); padding: 2rem 0; }
+
+/* Cards (approval items) */
+.card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+.subject { font-weight: bold; margin-bottom: 0.5rem; }
+.body-preview {
+  white-space: pre-wrap;
+  font-family: var(--font);
+  font-size: 0.9em;
+  color: var(--muted);
+  border-left: 2px solid var(--border);
+  padding-left: 0.75rem;
+  margin: 0.5rem 0 1rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+details { margin-bottom: 1rem; }
+summary { cursor: pointer; color: var(--muted); }
+summary:hover { color: var(--text); }
+details[open] summary { margin-bottom: 0.75rem; }
+
+.actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+
+/* Forms */
+label { display: block; margin-bottom: 0.75rem; color: var(--muted); }
+label input, label textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.9em;
+  padding: 0.4rem 0.6rem;
+  border-radius: 3px;
+}
+input[type="text"] {
+  width: auto;
+  min-width: 200px;
+}
+.actions input[type="text"] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.85em;
+  padding: 0.3rem 0.5rem;
+  border-radius: 3px;
+}
+
+/* Buttons */
+button {
+  font-family: var(--font);
+  font-size: 0.85em;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.btn-primary { background: transparent; border-color: var(--accent); color: var(--accent); }
+.btn-primary:hover { background: var(--accent); color: var(--bg); }
+.btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.btn-danger:hover { background: var(--danger); color: var(--bg); }
+
+/* Table (activity feed) */
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; color: var(--muted); font-weight: normal; border-bottom: 1px solid var(--border); padding: 0.4rem 0.75rem; }
+td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+code { color: var(--accent); }
+.summary { color: var(--muted); max-width: 400px; }
+.running { color: var(--warn); }
+
+/* Badges */
+.badge { font-size: 0.8em; padding: 0.1em 0.5em; border-radius: 3px; }
+.badge-running   { background: var(--warn);    color: var(--bg); }
+.badge-completed { background: var(--success); color: var(--bg); }
+.badge-failed    { background: var(--danger);  color: var(--bg); }
+
+/* Stats row */
+.stats-row { display: flex; gap: 2rem; margin-bottom: 1.5rem; }
+.stat { display: flex; flex-direction: column; }
+.stat-value { font-size: 1.8rem; color: var(--accent); }
+.stat-label { color: var(--muted); font-size: 0.85em; }

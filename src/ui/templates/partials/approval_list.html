@@ -1,0 +1,53 @@
+{% if items %}
+  {% for item in items %}
+  <article class="card" id="approval-{{ item.id }}">
+    <div class="card-header">
+      <div>
+        <strong>{{ item.contact_name }}</strong>
+        <span class="muted">{{ item.city }}</span>
+        {% if item.email %}<span class="muted">— {{ item.email }}</span>{% endif %}
+      </div>
+      <span class="muted small">{{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+    </div>
+
+    <div class="subject">{{ item.draft_subject }}</div>
+    <pre class="body-preview">{{ item.draft_body }}</pre>
+
+    <details>
+      <summary>Edit before approving</summary>
+      <form hx-post="/approvals/{{ item.id }}/edit"
+            hx-target="#approval-list"
+            hx-swap="innerHTML">
+        <label>Subject
+          <input type="text" name="final_subject" value="{{ item.draft_subject }}">
+        </label>
+        <label>Body
+          <textarea name="final_body" rows="10">{{ item.draft_body }}</textarea>
+        </label>
+        <label>Note (optional)
+          <input type="text" name="note" placeholder="Reason for edit">
+        </label>
+        <button type="submit" class="btn-primary">Save &amp; Approve</button>
+      </form>
+    </details>
+
+    <div class="actions">
+      <form hx-post="/approvals/{{ item.id }}/approve"
+            hx-target="#approval-list"
+            hx-swap="innerHTML"
+            style="display:inline">
+        <button type="submit" class="btn-primary">Approve</button>
+      </form>
+      <form hx-post="/approvals/{{ item.id }}/reject"
+            hx-target="#approval-list"
+            hx-swap="innerHTML"
+            style="display:inline">
+        <input type="text" name="note" placeholder="Reason (optional)">
+        <button type="submit" class="btn-danger">Reject</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+{% else %}
+  <p class="empty">No pending approvals.</p>
+{% endif %}

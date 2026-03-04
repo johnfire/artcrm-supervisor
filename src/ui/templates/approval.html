@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Approvals — ArtCRM Supervisor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Approval Queue</h1>
+  <span class="muted">{{ items|length }} pending</span>
+</div>
+
+<div id="approval-list">
+  {% include "partials/approval_list.html" %}
+</div>
+{% endblock %}
