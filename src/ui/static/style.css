@@ -132,11 +132,36 @@ code { color: var(--accent); }
 .summary { color: var(--muted); max-width: 400px; }
 .running { color: var(--warn); }
 
-/* Badges */
+/* Badges — agent run status */
 .badge { font-size: 0.8em; padding: 0.1em 0.5em; border-radius: 3px; }
 .badge-running   { background: var(--warn);    color: var(--bg); }
 .badge-completed { background: var(--success); color: var(--bg); }
 .badge-failed    { background: var(--danger);  color: var(--bg); }
+
+/* Badges — contact status */
+.badge-candidate  { border: 1px solid #555;    color: #888; }
+.badge-cold       { border: 1px solid var(--accent); color: var(--accent); }
+.badge-contacted  { border: 1px solid var(--warn);   color: var(--warn); }
+.badge-meeting    { border: 1px solid #b88fff; color: #b88fff; }
+.badge-proposal   { border: 1px solid #ffcc44; color: #ffcc44; }
+.badge-accepted   { background: var(--success); color: var(--bg); }
+.badge-rejected   { background: var(--danger);  color: var(--bg); }
+.badge-dormant    { border: 1px solid #555;    color: #666; }
+.badge-on_hold    { border: 1px solid #555;    color: #777; }
+.badge-dropped    { border: 1px solid #444;    color: #555; }
+
+/* Filter bar (contacts page) */
+.filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center; }
+.filter-bar input[type="text"] {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--font); font-size: 0.9em;
+  padding: 0.35rem 0.6rem; border-radius: 3px; min-width: 200px;
+}
+.filter-bar select {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--font); font-size: 0.9em;
+  padding: 0.35rem 0.6rem; border-radius: 3px;
+}
 
 /* Stats row */
 .stats-row { display: flex; gap: 2rem; margin-bottom: 1.5rem; }

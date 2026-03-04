@@ -10,14 +10,22 @@ dependencies = [
     "jinja2>=3.1.4",
     "python-multipart>=0.0.12",
     "httpx>=0.28.0",
+    "artcrm-research-agent",
+    "artcrm-scout-agent",
+    "artcrm-outreach-agent",
+    "artcrm-followup-agent",
 ]
 
 [project.optional-dependencies]
 agents = [
     "langgraph>=0.2.0",
     "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-anthropic>=0.3.0",
+    "langgraph-checkpoint-postgres>=2.0.0",
     "anthropic>=0.40.0",
     "openai>=1.50.0",
+    "duckduckgo-search>=6.0.0",
 ]
 dev = [
     "pytest>=8.0.0",
@@ -38,3 +46,9 @@ packages = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.uv.sources]
+artcrm-research-agent = { path = "../artcrm-research-agent", editable = true }
+artcrm-scout-agent = { path = "../artcrm-scout-agent", editable = true }
+artcrm-outreach-agent = { path = "../artcrm-outreach-agent", editable = true }
+artcrm-followup-agent = { path = "../artcrm-followup-agent", editable = true }

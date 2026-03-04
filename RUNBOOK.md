@@ -1,6 +1,6 @@
 # ArtCRM Agent System — Runbook
 
-How to set up, run, and test the full system.
+Complete setup, operation, and testing guide.
 
 ---
 
@@ -8,16 +8,14 @@ How to set up, run, and test the full system.
 
 | Repo | Purpose | Status |
 |---|---|---|
-| `theo-hits-the-road` | Original CRM, CLI, PostgreSQL schema | Untouched — always works |
-| `artcrm-supervisor` | Orchestrator, FastAPI UI, tool implementations | Phase 0 done |
-| `artcrm-research-agent` | Researches cities/industries for new contacts | Phase 1 done |
-| `artcrm-scout-agent` | Scores candidates for mission fit | Phase 2 done |
-| `artcrm-outreach-agent` | Drafts first-contact emails, queues for approval | Phase 3 done |
-| `artcrm-followup-agent` | Monitors inbox, classifies replies, drafts follow-ups | Phase 4 — TODO |
-| Supervisor wiring + PostgreSQL checkpointer | Phase 5 — TODO |
-| UI polish | Phase 6 — TODO |
+| `theo-hits-the-road` | Original CRM, CLI, PostgreSQL schema | Untouched — always works as fallback |
+| `artcrm-supervisor` | Orchestrator, FastAPI UI, tool implementations, supervisor graph | Done |
+| `artcrm-research-agent` | Researches cities/industries for new contacts | Done |
+| `artcrm-scout-agent` | Scores candidates for mission fit | Done |
+| `artcrm-outreach-agent` | Drafts first-contact emails, queues for approval | Done |
+| `artcrm-followup-agent` | Monitors inbox, classifies replies, sends follow-ups | Done |
 
-All repos live at `/home/christopher/programming/`.
+All repos live at `~/programming/`.
 
 ---
 
@@ -25,261 +23,306 @@ All repos live at `/home/christopher/programming/`.
 
 - PostgreSQL running with the `artcrm` database (same one used by `theo-hits-the-road`)
 - `uv` installed (`~/.local/bin/uv`)
-- Proton Bridge running locally (for Phases 3+ when email is actually sent)
-- DeepSeek and/or Anthropic API keys
+- Proton Bridge running locally (required for any email send/receive)
+- DeepSeek API key (routine tasks) and/or Anthropic API key (high-stakes drafts)
+- `~/logs/` directory exists: `mkdir -p ~/logs`
 
 ---
 
 ## First-Time Setup
 
-### 1. Set up artcrm-supervisor
+### 1. Configure
 
 ```bash
 cd ~/programming/artcrm-supervisor
 cp .env.example .env
-# Edit .env — fill in DATABASE_URL, API keys, Proton Bridge credentials
-uv sync
-uv run python scripts/migrate.py   # adds 4 new tables to the shared DB
 ```
 
-### 2. Install agent packages for local development
+Edit `.env`:
+```
+DATABASE_URL=postgresql://user:password@localhost/artcrm
+DEEPSEEK_API_KEY=your_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+ANTHROPIC_API_KEY=your_key          # optional
 
-The supervisor needs the agent packages installed. During development, install
-them as editable local packages so changes to agent repos are reflected immediately:
+PROTON_IMAP_HOST=127.0.0.1
+PROTON_IMAP_PORT=1143
+PROTON_SMTP_HOST=127.0.0.1
+PROTON_SMTP_PORT=1025
+PROTON_EMAIL=your@proton.me
+PROTON_PASSWORD=bridge_app_password  # from Proton Bridge settings
+
+HOST=127.0.0.1
+PORT=8000
+```
+
+### 2. Run DB migrations
 
 ```bash
-cd ~/programming/artcrm-supervisor
+uv run python scripts/migrate.py
+```
+
+Adds 4 new tables (`agent_runs`, `consent_log`, `approval_queue`, `inbox_messages`) and the `candidate` status to `lookup_values`. Does not touch existing tables.
+
+### 3. Verify agent packages are installed
+
+```bash
+uv sync --extra agents --extra dev
+```
+
+The four agent packages are listed as editable sources in `pyproject.toml` pointing to sibling directories. If they need reinstalling:
+
+```bash
 uv add --editable ../artcrm-research-agent
 uv add --editable ../artcrm-scout-agent
 uv add --editable ../artcrm-outreach-agent
-# Phase 4, when built:
-# uv add --editable ../artcrm-followup-agent
+uv add --editable ../artcrm-followup-agent
 ```
 
-When agents are published to GitHub, replace with:
-```bash
-uv add git+https://github.com/you/artcrm-research-agent
-```
-
-### 3. Start the UI
+### 4. Start the UI
 
 ```bash
-cd ~/programming/artcrm-supervisor
 uv run python -m src.api.main
-# Opens at http://127.0.0.1:8000
+# http://127.0.0.1:8000
 ```
-
-Two pages:
-- `/approvals/` — email drafts waiting for your approval (approve / edit+approve / reject)
-- `/activity/` — log of all agent runs with status and summary
 
 ---
 
-## Running the Original CRM (theo-hits-the-road)
+## Running the System
 
-Nothing changes here. It still works independently:
+### Full supervisor run
+
+```bash
+uv run python -m src.supervisor.run
+```
+
+Run order:
+1. **Research** — once per target in `src/supervisor/targets.py`
+2. **Scout** — scores all `status=candidate` contacts
+3. **Outreach** — drafts emails for `status=cold` contacts, queues for approval
+4. **Follow-up** — reads inbox, classifies replies, sends follow-ups to overdue contacts
+
+Logs to `~/logs/supervisor.log` and the `/activity/` UI page.
+
+### Schedule with cron
+
+```cron
+0 7 * * * cd /home/christopher/programming/artcrm-supervisor && /home/christopher/.local/bin/uv run python -m src.supervisor.run >> /home/christopher/logs/supervisor.log 2>&1
+```
+
+---
+
+## The UI
+
+| Page | URL | What it shows |
+|---|---|---|
+| Approval Queue | `/approvals/` | Email drafts pending review. Approve sends immediately. |
+| Contacts | `/contacts/` | All contacts with status filter and name/city search. |
+| Activity Feed | `/activity/` | Agent run log with status, duration, and summary. |
+
+**Approval actions:**
+- **Approve** — sends via Proton Bridge SMTP, logs interaction, contact → `status=contacted`
+- **Edit + Approve** — edit subject/body first, then sends
+- **Reject** — discards draft, contact stays `status=cold` for next run
+
+If Proton Bridge is not running, status shows `approved_unsent`. Re-trigger by running the outreach agent again.
+
+---
+
+## Contact Flow
+
+```
+targets.py — define cities and industries to research
+  ↓
+research_agent  →  status=candidate
+  ↓
+scout_agent     →  status=cold (score≥60) or status=dropped
+  ↓
+outreach_agent  →  approval_queue (status=pending)
+  ↓
+YOU approve at /approvals/
+  ↓
+Proton Bridge SMTP  →  email sent, status=contacted, interaction logged
+  ↓
+followup_agent (next run):
+  ├── reply interested  →  drafts + sends reply, logs
+  ├── reply rejected    →  logs, no further action
+  ├── reply opt_out     →  consent_log updated, status=dormant, never contacted again
+  └── no reply (90+ days)  →  drafts + sends brief follow-up
+```
+
+---
+
+## Configuring Research Targets
+
+Edit [src/supervisor/targets.py](src/supervisor/targets.py):
+
+```python
+RESEARCH_TARGETS = [
+    {"city": "Augsburg", "industry": "gallery",    "country": "DE"},
+    {"city": "Munich",   "industry": "restaurant", "country": "DE"},
+]
+```
+
+Supported industries: `gallery`, `restaurant`, `hotel`, `cafe`, `museum`, `office`, `coworking`, `bar`
+
+---
+
+## Changing the Mission
+
+Edit `src/config.py` — replace `ART_MISSION` and point `ACTIVE_MISSION` to it:
+
+```python
+SOFTWARE_MISSION = Mission(
+    goal="Find SMEs that need web development",
+    identity="Acme Web Dev, Munich",
+    targets="retail, clinics, tradespeople",
+    fit_criteria="10-100 employees, outdated website",
+    outreach_style="professional, ROI-focused",
+    language_default="de",
+)
+
+ACTIVE_MISSION: Mission = SOFTWARE_MISSION
+```
+
+All four agents use `ACTIVE_MISSION` — nothing else changes.
+
+---
+
+## The Original CRM
+
+`theo-hits-the-road` is untouched. Both systems share the same PostgreSQL database and can run simultaneously.
 
 ```bash
 cd ~/programming/theo-hits-the-road
 source venv/bin/activate
-python main.py          # interactive menu
-scripts/crm --help      # CLI
-pytest                  # run its own tests
+python main.py      # menu
+scripts/crm --help  # CLI
+pytest              # its own tests
 ```
-
-The agent system shares the same PostgreSQL database. Both systems can run at the same time.
-
----
-
-## Running Agents Manually (Phase 5 will automate this)
-
-Until the supervisor is wired (Phase 5), agents can be invoked directly from Python.
-This is also how you test end-to-end with real tools before the supervisor is ready.
-
-Example — run the research agent against the real database:
-
-```python
-# from artcrm-supervisor directory
-# uv run python -c "..."
-
-from src.config import ACTIVE_MISSION
-from src.tools.db import save_contact, start_run, finish_run   # (these will exist after Phase 5)
-from src.tools.search import web_search, geo_search
-from artcrm_research_agent import create_research_agent
-
-agent = create_research_agent(
-    llm=...,                    # your ChatOpenAI or ChatAnthropic instance
-    web_search=web_search,
-    geo_search=geo_search,
-    save_contact=save_contact,
-    start_run=start_run,
-    finish_run=finish_run,
-    mission=ACTIVE_MISSION,
-)
-
-result = agent.invoke({"city": "Augsburg", "industry": "gallery"})
-print(result["summary"])
-```
-
-The concrete tool implementations (`src/tools/`) are built in Phase 5.
 
 ---
 
 ## Testing
 
-### Philosophy
-
-Each agent repo has its own test suite that runs with **zero external dependencies** —
-no real LLM, no database, no network. Every test uses dummy implementations of the
-Protocol interfaces. This means:
-
-- Tests run in milliseconds
-- Tests are deterministic (no flaky API calls)
-- Every edge case is testable by controlling what the dummies return
-- The real tool implementations are tested separately (integration tests, Phase 5)
-
-### Running tests
-
-Each agent repo is tested independently:
+### Run everything
 
 ```bash
-cd ~/programming/artcrm-research-agent && uv run pytest -v
-cd ~/programming/artcrm-scout-agent    && uv run pytest -v
-cd ~/programming/artcrm-outreach-agent && uv run pytest -v
-# Phase 4:
-# cd ~/programming/artcrm-followup-agent && uv run pytest -v
-```
-
-To run everything at once:
-
-```bash
-for repo in artcrm-research-agent artcrm-scout-agent artcrm-outreach-agent; do
-    echo "=== $repo ==="
-    cd ~/programming/$repo && uv run pytest -v
+# Agent repos (each has its own venv)
+for repo in artcrm-research-agent artcrm-scout-agent artcrm-outreach-agent artcrm-followup-agent; do
+    echo "=== $repo ===" && cd ~/programming/$repo && uv run pytest -v
 done
+
+# Supervisor
+cd ~/programming/artcrm-supervisor && uv run pytest -v
 ```
 
-### What each test suite covers
+### Test count and coverage
 
-**research agent** (4 tests):
-- Saves contacts when search returns results
-- Handles empty search results gracefully
-- Handles LLM returning invalid JSON (records error, doesn't crash)
-- Handles LLM wrapping JSON in markdown code fences
+| Repo | Tests | What's covered |
+|---|---|---|
+| `artcrm-research-agent` | 4 | Saves contacts, empty results, LLM JSON error, markdown-wrapped JSON |
+| `artcrm-scout-agent` | 4 | Promotes high score, drops low score, empty candidates, batch continues on error |
+| `artcrm-outreach-agent` | 4 | Queues compliant contact, blocks opted-out, handles draft error, empty contacts |
+| `artcrm-followup-agent` | 7 | Interested reply, opt-out flagging, rejected reply, overdue follow-up, empty inbox, unmatched sender, SMTP failure |
+| `artcrm-supervisor` — tools | 9 | `save_contact`, `check_compliance` (4 cases), `set_opt_out`, `start_run`, `finish_run` |
+| `artcrm-supervisor` — supervisor | 3 | All agents run, continues on failure, report includes all summaries |
+| **Total** | **31** | |
 
-**scout agent** (4 tests):
-- Promotes contacts with score >= 60
-- Drops contacts with score < 60
-- Handles empty candidate list
-- Continues processing batch when one contact's scoring fails
+### Testing philosophy
 
-**outreach agent** (4 tests):
-- Queues email for approval when contact passes compliance check
-- Blocks contact with opt-out flag (nothing queued, nothing sent)
-- Handles LLM returning invalid JSON for email draft
-- Handles empty contact list
+All unit tests run with **zero external dependencies**:
+- `FakeLLM` returns scripted responses — no real API calls
+- DB connections are mocked with `unittest.mock.patch`
+- No network access
+
+The `conftest.py` in the supervisor tests sets dummy env vars so `config.py` loads without a `.env` file.
 
 ### Writing new tests
 
-The pattern for every test is the same:
-
 ```python
-# 1. Create a DummyMission dataclass
-# 2. Create a FakeLLM that returns controlled responses
-# 3. Create dummy tool functions (closures that record what was called)
-# 4. Build the agent with create_X_agent(llm=fake, tools=dummies, mission=dummy)
-# 5. Call agent.invoke({...}) and assert on the result
-
 def test_something():
+    llm = FakeLLM(['{"subject": "Hello", "body": "..."}'])
     queued = []
 
-    def queue_for_approval(contact_id, run_id, subject, body):
-        queued.append(subject)
-        return 1
-
     agent = create_outreach_agent(
-        llm=FakeLLM(['{"subject": "Hi", "body": "Hello"}']),
-        fetch_ready_contacts=lambda limit: [{"id": 1, "name": "Gallery X", ...}],
-        check_compliance=lambda contact_id: True,
-        queue_for_approval=queue_for_approval,
-        start_run=lambda name, data: 1,
+        llm=llm,
+        fetch_ready_contacts=lambda limit: [{"id": 1, "name": "Gallery X", "city": "Munich"}],
+        check_compliance=lambda id: True,
+        queue_for_approval=lambda **kw: queued.append(kw) or 1,
+        start_run=lambda *a: 1,
         finish_run=lambda *a: None,
         mission=DummyMission(),
     )
 
     result = agent.invoke({"limit": 1})
     assert result["queued_count"] == 1
-    assert queued[0] == "Hi"
+    assert len(queued) == 1
 ```
 
-### Integration tests (Phase 5)
+### Integration tests (future)
 
-Once the supervisor's concrete tool implementations exist (`src/tools/`), we add
-integration tests that run against a real test database. These are kept separate
-from the unit tests and require `TEST_DATABASE_URL` in `.env`:
-
-```bash
-cd ~/programming/artcrm-supervisor
-uv run pytest tests/integration/ -v
-```
-
-Integration tests will cover:
-- `save_contact()` correctly writes to PostgreSQL
-- `check_compliance()` correctly reads consent_log
-- `queue_for_approval()` inserts into approval_queue
-- Full agent run against test DB (research → scout → outreach pipeline)
-
----
-
-## Changing the Mission
-
-To repurpose the entire agent system for a different domain, edit one file:
+When adding integration tests that need a real database, put them in `tests/integration/` and mark them:
 
 ```python
-# artcrm-supervisor/src/config.py
+import pytest
 
-SOFTWARE_MISSION = Mission(
-    goal="Find SMEs in Germany that need web development or internal tooling",
-    identity="Acme Web Dev, full-stack agency based in Munich",
-    targets="retail businesses, clinics, tradespeople, SMEs with outdated web presence",
-    fit_criteria="10-100 employees, no recent digital investment, growing sector",
-    outreach_style="professional, ROI-focused, concrete value proposition",
-    language_default="de",
-)
-
-ACTIVE_MISSION: Mission = SOFTWARE_MISSION  # <- change this line
+@pytest.mark.integration
+def test_save_contact_round_trip():
+    ...
 ```
 
-The four agent repos are untouched. All prompts, all logic, all graph structure
-stays the same. Only the context injected into the LLM changes.
+Run with: `uv run pytest tests/integration/ -v`
+Exclude from default run by adding to `pyproject.toml`:
+```toml
+[tool.pytest.ini_options]
+markers = ["integration: requires live database"]
+addopts = "-m 'not integration'"
+```
 
 ---
 
-## Contact Flow (end to end)
+## LangGraph Checkpointer
+
+The supervisor uses PostgreSQL as a state checkpointer (`langgraph-checkpoint-postgres`). On first run it creates the checkpoint tables automatically.
+
+Each run uses `thread_id = "supervisor-YYYY-MM-DDTHH"`. A crash mid-run resumes from the last checkpoint when restarted within the same hour. A new hour starts fresh.
+
+---
+
+## File Layout (supervisor repo)
 
 ```
-research_agent runs
-  → new contacts written to DB with status=candidate
-
-scout_agent runs
-  → candidates scored, promoted to status=cold or dropped
-
-outreach_agent runs
-  → cold contacts drafted, inserted into approval_queue
-  → UI shows drafts at /approvals/
-
-You review in browser
-  → approve / edit+approve / reject
-
-[Phase 5] Supervisor picks up approved items
-  → sends via Proton Bridge SMTP
-  → logs interaction in DB
-  → updates contact status to status=contacted
-
-[Phase 4] followup_agent runs
-  → reads IMAP inbox via Proton Bridge
-  → classifies replies (interested / rejected / opt-out)
-  → drafts follow-ups for non-replies
-  → auto-logs interactions
-  → daily report visible at /activity/
+artcrm-supervisor/
+  src/
+    mission.py              Mission dataclass (frozen)
+    config.py               Active mission + all env config
+    db/
+      connection.py         db() context manager
+      migrations/
+        001_agent_tables.sql
+    tools/
+      db.py                 All database operations (contacts, compliance, interactions, runs)
+      search.py             Overpass geo search + DuckDuckGo web search
+      email.py              Proton Bridge SMTP send + IMAP read
+      llm.py                LLM factory: deepseek-chat, deepseek-reasoner, claude
+    supervisor/
+      targets.py            Research target list
+      graph.py              LangGraph supervisor with PostgreSQL checkpointer
+      run.py                Entry point
+    api/
+      routers/
+        approval.py         Approval queue + send-on-approve
+        activity.py         Agent run feed
+        contacts.py         Contact board
+    ui/
+      templates/            Jinja2 + HTMX
+      static/style.css
+  tests/
+    conftest.py             Dummy env vars for test environment
+    test_tools.py           DB tool unit tests (mocked)
+    test_supervisor.py      Supervisor graph flow tests
+  scripts/migrate.py
+  RUNBOOK.md
+  .env.example
 ```
