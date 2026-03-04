@@ -24,6 +24,10 @@ PROTON_PASSWORD: str = os.getenv("PROTON_PASSWORD", "")
 HOST: str = os.getenv("HOST", "127.0.0.1")
 PORT: int = int(os.getenv("PORT", "8000"))
 
+# --- Scout threshold ---
+# Contacts scoring below this are dropped. Start high, lower when you need more volume.
+SCOUT_THRESHOLD: int = int(os.getenv("SCOUT_THRESHOLD", "75"))
+
 # --- Mission ---
 # To repurpose for a different domain, replace ART_MISSION with your own
 # and update ACTIVE_MISSION to point to it. Nothing else changes.

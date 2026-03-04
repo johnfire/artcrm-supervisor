@@ -18,7 +18,7 @@ from typing import TypedDict
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.postgres import PostgresSaver
 
-from src.config import DATABASE_URL, ACTIVE_MISSION
+from src.config import DATABASE_URL, ACTIVE_MISSION, SCOUT_THRESHOLD
 from src.supervisor.targets import RESEARCH_TARGETS
 from src.tools import (
     save_contact, get_candidates, get_cold_contacts, update_contact,
@@ -73,6 +73,7 @@ def _build_agents():
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
+        threshold=SCOUT_THRESHOLD,
     )
 
     outreach = create_outreach_agent(
