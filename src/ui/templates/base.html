@@ -19,6 +19,12 @@
     <a href="/activity/" {% if request.url.path.startswith('/activity') %}class="active"{% endif %}>
       Activity
     </a>
+    <a href="/people/" {% if request.url.path.startswith('/people') %}class="active"{% endif %}>
+      People
+    </a>
+    <a href="/research/" {% if request.url.path.startswith('/research') %}class="active"{% endif %}>
+      Research
+    </a>
   </nav>
   <main>
     {% block content %}{% endblock %}

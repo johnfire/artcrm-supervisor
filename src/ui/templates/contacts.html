@@ -4,10 +4,12 @@
 {% block content %}
 <div class="page-header">
   <h1>Contacts</h1>
-  <span class="muted">{{ contacts|length }} shown</span>
+  <span class="muted">{{ total }} total — page {{ page }} of {{ total_pages }}</span>
 </div>
 
 <form class="filter-bar" method="get" action="/contacts/">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="hidden" name="dir" value="{{ dir }}">
   <input type="text" name="q" value="{{ query }}" placeholder="Search name or city…">
   <select name="status">
     <option value="">All statuses</option>
@@ -21,22 +23,33 @@
   {% endif %}
 </form>
 
+{% macro sort_link(col, label) %}
+  {% set next_dir = 'desc' if (sort == col and dir == 'asc') else 'asc' %}
+  {% set arrow = ' ↑' if (sort == col and dir == 'asc') else (' ↓' if (sort == col and dir == 'desc') else '') %}
+  <a href="?status={{ active_status }}&q={{ query }}&sort={{ col }}&dir={{ next_dir }}&page=1" class="sort-link">{{ label }}{{ arrow }}</a>
+{% endmacro %}
+
 {% if contacts %}
 <table>
   <thead>
     <tr>
-      <th>Name</th>
-      <th>City</th>
-      <th>Type</th>
-      <th>Status</th>
-      <th>Fit</th>
-      <th>Last contact</th>
+      <th>{{ sort_link('id', '#') }}</th>
+      <th>{{ sort_link('name', 'Name') }}</th>
+      <th>{{ sort_link('city', 'City') }}</th>
+      <th>{{ sort_link('type', 'Type') }}</th>
+      <th>{{ sort_link('status', 'Status') }}</th>
+      <th>{{ sort_link('fit', 'Fit') }}</th>
+      <th>{{ sort_link('last_contact', 'Last contact') }}</th>
       <th>Email</th>
+      <th>Website</th>
+      <th>Notes</th>
+      <th></th>
     </tr>
   </thead>
   <tbody>
     {% for c in contacts %}
     <tr>
+      <td class="muted small">{{ c.id }}</td>
       <td><strong>{{ c.name }}</strong></td>
       <td>{{ c.city }}{% if c.country %} <span class="muted">{{ c.country }}</span>{% endif %}</td>
       <td class="muted">{{ c.type or '—' }}</td>
@@ -44,11 +57,36 @@
       <td>{% if c.fit_score is not none %}{{ c.fit_score }}{% else %}<span class="muted">—</span>{% endif %}</td>
       <td class="muted">{{ c.last_contact.strftime('%Y-%m-%d') if c.last_contact else '—' }}</td>
       <td class="muted small">{{ c.email or '—' }}</td>
+      <td class="muted small">{% if c.website %}<a href="{{ c.website }}" target="_blank">{{ c.website }}</a>{% else %}—{% endif %}</td>
+      <td class="muted small notes-cell">{{ c.notes or '—' }}</td>
+      <td>
+        {% if c.flagged %}
+        <span class="flag-dot" title="Flagged for review">●</span>
+        <form method="post" action="/contacts/{{ c.id }}/delete" style="display:inline" onsubmit="return confirm('Delete {{ c.name }}?')">
+          <button class="btn-danger btn-tiny">del</button>
+        </form>
+        <form method="post" action="/contacts/{{ c.id }}/unflag" style="display:inline">
+          <button class="btn-tiny">keep</button>
+        </form>
+        {% endif %}
+      </td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 {% else %}
   <p class="empty">No contacts found.</p>
+{% endif %}
+
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% if page > 1 %}
+  <a href="?status={{ active_status }}&q={{ query }}&sort={{ sort }}&dir={{ dir }}&page={{ page - 1 }}" class="btn-secondary">← Prev</a>
+  {% endif %}
+  <span class="muted">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+  <a href="?status={{ active_status }}&q={{ query }}&sort={{ sort }}&dir={{ dir }}&page={{ page + 1 }}" class="btn-secondary">Next →</a>
+  {% endif %}
+</div>
 {% endif %}
 {% endblock %}

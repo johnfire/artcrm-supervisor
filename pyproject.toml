@@ -10,7 +10,9 @@ dependencies = [
     "jinja2>=3.1.4",
     "python-multipart>=0.0.12",
     "httpx>=0.28.0",
+    "mcp[cli]>=1.0.0",
     "artcrm-research-agent",
+    "artcrm-enrichment-agent",
     "artcrm-scout-agent",
     "artcrm-outreach-agent",
     "artcrm-followup-agent",
@@ -49,6 +51,7 @@ asyncio_mode = "auto"
 
 [tool.uv.sources]
 artcrm-research-agent = { path = "../artcrm-research-agent", editable = true }
+artcrm-enrichment-agent = { path = "../artcrm-enrichment-agent", editable = true }
 artcrm-scout-agent = { path = "../artcrm-scout-agent", editable = true }
 artcrm-outreach-agent = { path = "../artcrm-outreach-agent", editable = true }
 artcrm-followup-agent = { path = "../artcrm-followup-agent", editable = true }

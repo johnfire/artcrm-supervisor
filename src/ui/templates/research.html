@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Research Queue — ArtCRM Supervisor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Research Queue</h1>
+  <span class="muted">{{ completed }}/{{ total }} cities done — {{ pending }} pending</span>
+</div>
+
+<div class="stats-row">
+  <div class="stat">
+    <span class="stat-value">{{ total }}</span>
+    <span class="stat-label">total cities</span>
+  </div>
+  <div class="stat">
+    <span class="stat-value">{{ completed }}</span>
+    <span class="stat-label">researched</span>
+  </div>
+  <div class="stat">
+    <span class="stat-value">{{ pending }}</span>
+    <span class="stat-label">pending</span>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>City</th>
+      <th>Country</th>
+      <th>Progress</th>
+      <th>Last run</th>
+      <th>Total runs</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in cities %}
+    <tr>
+      <td><strong>{{ c.city }}</strong></td>
+      <td class="muted">{{ c.country }}</td>
+      <td>
+        <span {% if c.done == c.industries %}style="color:var(--success)"{% else %}class="muted"{% endif %}>
+          {{ c.done }}/{{ c.industries }}
+        </span>
+        {% if c.done == 0 %}
+          <span class="muted small"> not started</span>
+        {% elif c.done < c.industries %}
+          <span class="muted small"> in progress</span>
+        {% endif %}
+      </td>
+      <td class="muted">{{ c.last_run_at.strftime('%Y-%m-%d') if c.last_run_at else '—' }}</td>
+      <td class="muted">{{ c.total_runs or 0 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

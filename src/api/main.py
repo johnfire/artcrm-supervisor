@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
-from src.api.routers import approval, activity, contacts
+from src.api.routers import approval, activity, contacts, people, research
 
 app = FastAPI(title="ArtCRM Supervisor", docs_url=None, redoc_url=None)
 
@@ -15,6 +15,8 @@ templates = Jinja2Templates(directory=str(UI_DIR / "templates"))
 app.include_router(approval.router)
 app.include_router(activity.router)
 app.include_router(contacts.router)
+app.include_router(people.router)
+app.include_router(research.router)
 
 
 @app.get("/", response_class=HTMLResponse)

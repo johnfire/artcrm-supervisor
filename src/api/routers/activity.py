@@ -16,7 +16,7 @@ def activity_feed(request: Request):
             SELECT id, agent_name, started_at, finished_at, status, summary
             FROM agent_runs
             ORDER BY started_at DESC
-            LIMIT 100
+            LIMIT 500
         """)
         runs = [dict(row) for row in cur.fetchall()]
 

@@ -11,6 +11,14 @@ from src.db.connection import db
 logger = logging.getLogger(__name__)
 
 
+def _serialize_row(row: dict) -> dict:
+    """Convert datetime/date objects to ISO strings so rows are JSON-safe."""
+    return {
+        k: v.isoformat() if isinstance(v, (datetime, date)) else v
+        for k, v in row.items()
+    }
+
+
 # ---------------------------------------------------------------------------
 # Contacts
 # ---------------------------------------------------------------------------
@@ -65,7 +73,7 @@ def get_candidates(limit: int = 50) -> list[dict]:
             "SELECT * FROM contacts WHERE status = 'candidate' ORDER BY created_at ASC LIMIT %s",
             (limit,),
         )
-        return [dict(r) for r in cur.fetchall()]
+        return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 def get_cold_contacts(limit: int = 20) -> list[dict]:
@@ -76,7 +84,7 @@ def get_cold_contacts(limit: int = 20) -> list[dict]:
             "SELECT * FROM contacts WHERE status = 'cold' ORDER BY created_at ASC LIMIT %s",
             (limit,),
         )
-        return [dict(r) for r in cur.fetchall()]
+        return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 def update_contact(contact_id: int, status: str, fit_score: int, notes: str = "") -> None:
@@ -101,6 +109,39 @@ def update_contact(contact_id: int, status: str, fit_score: int, notes: str = ""
             )
 
 
+def get_contacts_needing_enrichment(limit: int = 50) -> list[dict]:
+    """Return contacts missing both website and email, any status."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT * FROM contacts
+            WHERE (website IS NULL OR website = '')
+              AND (email IS NULL OR email = '')
+            ORDER BY created_at ASC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        return [_serialize_row(dict(r)) for r in cur.fetchall()]
+
+
+def update_contact_details(contact_id: int, **kwargs) -> None:
+    """Update arbitrary contact fields (website, email, phone). Ignores unknown keys."""
+    allowed = {"website", "email", "phone"}
+    fields = {k: v for k, v in kwargs.items() if k in allowed and v}
+    if not fields:
+        return
+    set_clause = ", ".join(f"{k} = %s" for k in fields)
+    values = list(fields.values()) + [contact_id]
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"UPDATE contacts SET {set_clause}, updated_at = NOW() WHERE id = %s",
+            values,
+        )
+
+
 def match_contact_by_email(from_email: str) -> dict | None:
     """Find a contact by email address. Returns None if not found."""
     with db() as conn:
@@ -110,7 +151,7 @@ def match_contact_by_email(from_email: str) -> dict | None:
             (from_email,),
         )
         row = cur.fetchone()
-        return dict(row) if row else None
+        return _serialize_row(dict(row)) if row else None
 
 
 # ---------------------------------------------------------------------------
@@ -264,7 +305,7 @@ def get_overdue_contacts(days: int = 90) -> list[dict]:
             """,
             (days,),
         )
-        return [dict(r) for r in cur.fetchall()]
+        return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +359,58 @@ def mark_message_processed(inbox_message_id: int, contact_id: int | None) -> Non
             WHERE id = %s
             """,
             (contact_id, inbox_message_id),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Research queue
+# ---------------------------------------------------------------------------
+
+def get_next_research_targets(cities_per_run: int = 3) -> list[dict]:
+    """
+    Return the next batch of research targets — all industries for the next
+    N cities that haven't been researched yet (or were researched longest ago).
+    """
+    with db() as conn:
+        cur = conn.cursor()
+        # Pick the next N cities ordered by last_run_at ASC NULLS FIRST
+        cur.execute(
+            """
+            SELECT DISTINCT city, country,
+                   MIN(COALESCE(last_run_at, '1970-01-01')) AS oldest
+            FROM research_queue
+            GROUP BY city, country
+            ORDER BY oldest ASC
+            LIMIT %s
+            """,
+            (cities_per_run,),
+        )
+        cities = [(r["city"], r["country"]) for r in cur.fetchall()]
+
+        if not cities:
+            return []
+
+        targets = []
+        for city, country in cities:
+            cur.execute(
+                "SELECT city, industry, country FROM research_queue WHERE city = %s AND country = %s",
+                (city, country),
+            )
+            targets.extend([dict(r) for r in cur.fetchall()])
+        return targets
+
+
+def mark_research_target_done(city: str, industry: str) -> None:
+    """Record that a city/industry combo was just researched."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE research_queue
+            SET last_run_at = NOW(), run_count = run_count + 1
+            WHERE city = %s AND industry = %s
+            """,
+            (city, industry),
         )
 
 

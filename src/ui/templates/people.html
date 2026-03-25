@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}People — ArtCRM Supervisor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>People</h1>
+  <span class="muted">{{ people|length }} shown</span>
+</div>
+
+<form class="filter-bar" method="get" action="/people/">
+  <input type="text" name="q" value="{{ query }}" placeholder="Search name, city or email…">
+  <button type="submit" class="btn-primary">Search</button>
+  {% if query %}
+  <a href="/people/" class="muted" style="align-self:center">clear</a>
+  {% endif %}
+</form>
+
+{% if people %}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>City</th>
+      <th>Relationship</th>
+      <th>Email</th>
+      <th>Phone</th>
+      <th>Website</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in people %}
+    <tr>
+      <td><strong>{{ p.name }}</strong></td>
+      <td>{{ p.city or '—' }}</td>
+      <td class="muted">{{ p.relationship or '—' }}</td>
+      <td class="muted small">{{ p.email or '—' }}</td>
+      <td class="muted small">{{ p.phone or '—' }}</td>
+      <td class="muted small">{% if p.website %}<a href="{{ p.website }}" target="_blank">{{ p.website }}</a>{% else %}—{% endif %}</td>
+      <td class="muted small">{{ p.notes or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No people found.</p>
+{% endif %}
+{% endblock %}

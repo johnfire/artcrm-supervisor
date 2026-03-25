@@ -33,7 +33,7 @@ def get_llm(model: str = "deepseek-chat"):
             model="claude-sonnet-4-6",
             api_key=ANTHROPIC_API_KEY,
             temperature=0.3,
-            max_tokens=4096,
+            max_tokens=8192,
         )
     else:
         raise ValueError(f"Unknown model '{model}'. Use: deepseek-chat, deepseek-reasoner, claude")

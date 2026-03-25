@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 STUDY_FILES = [
     pathlib.Path.home() / "ai-workzone/art-marketing-by-city/Ammersee-marketing-study/ammersee_venues_en.md",
     pathlib.Path.home() / "ai-workzone/art-marketing-by-city/Augsburg-markenting-study/augsburg_venues_en.md",
+    pathlib.Path.home() / "ai-workzone/art-marketing-by-city/ingolstadt-marketing-study/ingolstadt_venues_en.md",
     pathlib.Path.home() / "ai-workzone/art-marketing-by-city/lindau-bergrenz-marketing study/lindau_bregenz_venues_en.md",
     pathlib.Path.home() / "ai-workzone/art-marketing-by-city/Nuremberg-marketing-study/nuernberg_venues_en.md",
     pathlib.Path.home() / "ai-workzone/art-marketing-by-city/Rosenheim-marketing-study/rosenheim_venues_en.md",

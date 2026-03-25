@@ -29,18 +29,22 @@ logger = logging.getLogger(__name__)
 
 
 def main():
+    from langgraph.checkpoint.postgres import PostgresSaver
+    from src.config import DATABASE_URL
     from src.supervisor.graph import create_supervisor
 
     thread_id = f"supervisor-{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H')}"
     logger.info("supervisor: thread_id=%s", thread_id)
 
     try:
-        supervisor = create_supervisor()
-        result = supervisor.invoke(
-            {},
-            config={"configurable": {"thread_id": thread_id}},
-        )
-        print(result["summary"])
+        with PostgresSaver.from_conn_string(DATABASE_URL) as checkpointer:
+            checkpointer.setup()
+            supervisor = create_supervisor(checkpointer=checkpointer)
+            result = supervisor.invoke(
+                {},
+                config={"configurable": {"thread_id": thread_id}},
+            )
+            print(result["summary"])
     except Exception as e:
         logger.exception("supervisor: fatal error — %s", e)
         sys.exit(1)
