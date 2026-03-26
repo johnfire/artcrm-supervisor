@@ -9,7 +9,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / 
 
 VALID_STATUSES = (
     "candidate", "cold", "contacted", "meeting", "proposal",
-    "accepted", "rejected", "dormant", "on_hold", "dropped",
+    "accepted", "rejected", "dormant", "on_hold", "dropped", "do_not_contact",
 )
 
 
