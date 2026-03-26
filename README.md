@@ -4,6 +4,9 @@ An autonomous AI agent system that finds art venues, researches them, drafts out
 
 Built by Christopher Rehm as a practical tool for selling and displaying original artwork across Bavaria, Austria, and Switzerland. Designed to be repurposed for any industry where relationship-driven outreach matters.
 
+
+This all works btw, youll need to download all the agents and then get api key or keys depending on the models you use. It could be adjusted to do sales resarch and out reach for any product.
+
 ---
 
 ## What It Does
