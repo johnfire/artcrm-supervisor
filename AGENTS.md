@@ -36,10 +36,10 @@ research → enrich → scout → outreach → followup
 
 **Configuration knobs:**
 
-- `ACTIVE_MISSION` in `src/config.py` — what the agents are working toward
+- `ACTIVE_MISSION` in `src/config.py` — what the agents are working toward, including `website` for email sign-offs
 - `SCAN_LEVELS` in `src/supervisor/targets.py` — Google Maps search terms per scan level
-- `SCOUT_THRESHOLD` in `.env` — minimum fit score (0–100) to promote a contact
-- `EMAIL_ENABLED` in `.env` — set to `false` to disable all outgoing email
+- `EMAIL_ENABLED` in `.env` — set to `false` to disable all outgoing email globally
+- `PROTON_FROM_EMAIL` in `.env` — the From address on outgoing emails (can differ from the SMTP login address, e.g. an alias)
 
 ---
 
@@ -132,6 +132,8 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 - Exhibition history: rotating shows, open submissions, artist residencies
 - Negative signals: exclusively famous artists, auction-house style, permanent collection only
 
+**City market context:** The scout reads the city's `market_character` (tourist / mixed / upscale / unknown) from the `cities` table and passes it to the LLM. A gallery in a tourist town (Landsberg, Konstanz) gets more benefit of the doubt; galleries in upscale cities (Munich, Zurich) are held to a higher bar. Set city context with the `set_city_notes` MCP tool or via the migration seed data.
+
 **Output:** contacts moved to `cold`, `maybe`, or `dropped`. The scout's reasoning is written into the contact's notes field.
 
 ---
@@ -174,14 +176,18 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 ### 6. Follow-up Agent (artcrm-followup-agent)
 
-**What it does:** Handles everything that happens after the first email has been sent. Two work streams per run.
+> **Currently disabled.** The supervisor short-circuits this agent and returns immediately. All follow-up is handled manually while patterns are established.
+
+**What it does (when enabled):** Handles everything that happens after the first email has been sent. Two work streams per run.
 
 **Work stream 1 — Inbox replies:**
 
 1. **fetch_inbox_messages** — reads unprocessed messages from Proton Bridge IMAP
-2. **classify_replies** — for each message, finds the matching contact by email address, then asks the LLM to classify the reply as one of: `interested`, `rejected`, `opt_out`, `other`
+2. **classify_replies** — for each message, finds the matching contact by email address
+   - Messages with no matching contact are skipped and marked processed (no LLM call)
+   - Classifies as: `interested`, `rejected`, `opt_out`, `other`
    - `opt_out`: immediately sets the flag in `consent_log` and moves contact to `status=dormant` — never contacted again
-   - `interested`: drafts a reply and adds it to the send queue
+   - `interested`: drafts a warm reply and **sends it directly** (time-sensitive, bypasses approval queue)
    - `rejected` / `other`: logs the interaction, no further action
 3. Marks each inbox message as processed
 
@@ -189,12 +195,9 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 1. **fetch_overdue_contacts** — finds contacts with `status=contacted` who haven't had an interaction in 90+ days
 2. **draft_followup_emails** — drafts a brief follow-up for each, referencing the original outreach subject line
-
-**send_all_emails** — sends everything in the queue (replies + follow-ups) directly via Proton Bridge SMTP, then logs each send as an interaction.
+3. Puts drafts in the **approval queue** (not sent directly — human reviews first)
 
 **LLM:** Claude Sonnet (writing quality matters for both replies and follow-ups)
-
-**Key difference from outreach:** the follow-up agent sends autonomously. There's no approval step. The activity feed at `/activity/` is the audit trail.
 
 ---
 
@@ -221,7 +224,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 contacted)
 ```
 
-`maybe` contacts sit until you review them manually. Lowering `SCOUT_THRESHOLD` or reviewing `/contacts/?status=maybe` are the two paths forward.
+`maybe` contacts sit until you review them manually. Use `manual_promote` or `manual_drop` MCP tools, or review them at `/contacts/?status=maybe`.
 
 ---
 
@@ -239,14 +242,14 @@ The supervisor (`src/supervisor/graph.py`) is the only place that knows about th
 
 ## At a glance
 
-| Agent      | Reads from DB                            | Writes to DB                     | LLM           | Sends email        |
-| ---------- | ---------------------------------------- | -------------------------------- | ------------- | ------------------ |
-| Supervisor | —                                        | `agent_runs`                     | —             | —                  |
-| Research   | —                                        | `contacts` (candidate)           | CHEAP_LLM     | —                  |
-| Enrichment | `contacts` (missing website/email)       | `contacts` (website/email/phone) | CHEAP_LLM     | —                  |
-| Scout      | `contacts` (candidate)                   | `contacts` (cold/maybe/dropped)  | CHEAP_LLM     | —                  |
-| Outreach   | `contacts` (cold)                        | `approval_queue`                 | Claude Sonnet | —                  |
-| Follow-up  | `inbox_messages`, `contacts` (contacted) | `interactions`, `consent_log`    | Claude Sonnet | Yes (autonomously) |
+| Agent      | Reads from DB                            | Writes to DB                     | LLM           | Sends email                     |
+| ---------- | ---------------------------------------- | -------------------------------- | ------------- | ------------------------------- |
+| Supervisor | —                                        | `agent_runs`                     | —             | —                               |
+| Research   | —                                        | `contacts` (candidate)           | CHEAP_LLM     | —                               |
+| Enrichment | `contacts` (missing website/email)       | `contacts` (website/email/phone) | CHEAP_LLM     | —                               |
+| Scout      | `contacts` (candidate)                   | `contacts` (cold/maybe/dropped)  | CHEAP_LLM     | —                               |
+| Outreach   | `contacts` (cold)                        | `approval_queue`                 | Claude Sonnet | —                               |
+| Follow-up  | `inbox_messages`, `contacts` (contacted) | `interactions`, `consent_log`    | Claude Sonnet | Replies only (disabled for now) |
 
 ---
 
@@ -273,3 +276,34 @@ Each agent package exposes a `create_*_agent()` factory. You can instantiate and
 ```cron
 0 7 * * * cd ~/programming/artcrm-supervisor && uv run python -m src.supervisor.run >> ~/logs/supervisor.log 2>&1
 ```
+
+---
+
+## MCP tools (manual operations)
+
+The FastMCP server exposes tools for operating the CRM from Claude Code directly, without running the full pipeline.
+
+**Contact management:**
+
+| Tool                               | What it does                             |
+| ---------------------------------- | ---------------------------------------- |
+| `contact_search`                   | Search by name, city, status             |
+| `contact_get`                      | Full contact record                      |
+| `contact_update`                   | Edit any field                           |
+| `manual_drop(contact_id, reason)`  | Set status=dropped and log the reason    |
+| `manual_promote(contact_id, note)` | Set status=cold (move to outreach queue) |
+
+**City context:**
+
+| Tool                                              | What it does                                                                        |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `set_city_notes(city, notes, character, country)` | Set market_character (tourist/mixed/upscale/unknown) and free-text notes for a city |
+
+**Outreach:**
+
+| Tool                               | What it does                                                    |
+| ---------------------------------- | --------------------------------------------------------------- |
+| `draft_first_contact(contact_id)`  | Draft an email for one contact and put it in the approval queue |
+| `scout_city(city, country, level)` | Run research + scout for a city directly                        |
+
+**City characters pre-seeded:** Landsberg, Konstanz, Friedrichshafen, Lindau, Garmisch-Partenkirchen, Rosenheim → `tourist`. Munich, Zurich, Basel → `upscale`. Augsburg, Heidelberg, Tübingen → `mixed`.
