@@ -138,7 +138,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 ### 5. Outreach Agent (artcrm-outreach-agent)
 
-**What it does:** Drafts a personalized first-contact email for each `cold` contact and puts it in the approval queue. Does not send anything.
+**What it does:** Researches each venue, drafts a personalized first-contact email, and puts it in the approval queue. Does not send anything.
 
 **Inputs:** `limit` (how many cold contacts to draft for per run — default is 1 for controlled rollout)
 
@@ -147,10 +147,20 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 1. **fetch** — pulls contacts where `status=cold`
 2. **draft_all** — for each contact:
    - Checks GDPR compliance first (hard block if `opt_out` or `erasure_requested` is set in `consent_log`)
-   - Asks the LLM to write a first-contact email in the contact's preferred language, tailored to the mission and venue
-3. **queue_drafts** — inserts approved drafts into `approval_queue` with `status=pending`
+   - Fetches the venue's website and reads up to 3000 characters of content
+   - Fetches the full interaction history for this contact
+   - Asks the LLM to write a first-contact email using all of this: research notes, scout reasoning, website content, and past interactions
+3. **queue_drafts** — inserts drafts into `approval_queue` with `status=pending`
 
-**LLM:** Claude Sonnet (slower, higher quality — email quality matters here)
+**LLM:** Claude Sonnet — quality matters here, this is the email a human reads.
+
+**What the LLM is told to do:**
+
+- Reference something specific about the venue from the notes or website — no generic openers
+- Introduce Christopher briefly and naturally
+- Express genuine interest in this specific space
+- Propose one concrete next step (visit, call, or portfolio)
+- Keep it short — 4 to 6 sentences
 
 **Output:** rows in `approval_queue` waiting for human review at `/approvals/`
 
