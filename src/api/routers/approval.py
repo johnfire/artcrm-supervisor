@@ -30,23 +30,21 @@ def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, bo
         from src.tools.email import send_email
         from src.tools.db import log_interaction
         success = send_email(to_email=to_email, subject=subject, body=body)
-        if success:
-            log_interaction(
-                contact_id=contact_id,
-                method="email",
-                direction="outbound",
-                summary=subject,
-                outcome="no_reply",
+        log_interaction(
+            contact_id=contact_id,
+            method="email",
+            direction="outbound",
+            summary=subject,
+            outcome="no_reply",
+        )
+        # Mark as contacted on approval regardless of whether email sent
+        with db() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE contacts SET status = 'contacted', updated_at = NOW() WHERE id = %s AND status = 'cold'",
+                (contact_id,),
             )
-            # Update contact status to 'contacted' after first successful send
-            with db() as conn:
-                cur = conn.cursor()
-                cur.execute(
-                    "UPDATE contacts SET status = 'contacted', updated_at = NOW() WHERE id = %s AND status = 'cold'",
-                    (contact_id,),
-                )
-            return True, "sent"
-        return False, "smtp_failed"
+        return True, "sent" if success else "approved_unsent"
     except Exception as e:
         logger.error("_send_and_log: item_id=%d error=%s", item_id, e)
         return False, str(e)

@@ -159,14 +159,14 @@ def approval_approve(item_id: int, note: str = "") -> str:
         )
         final_status = "approved" if success else "approved_unsent"
 
-        if success:
-            log_interaction(
-                contact_id=row["contact_id"],
-                method="email",
-                direction="outbound",
-                summary=row["draft_subject"],
-                outcome="no_reply",
-            )
+        # Log interaction and mark contacted on approval regardless of send result
+        log_interaction(
+            contact_id=row["contact_id"],
+            method="email",
+            direction="outbound",
+            summary=row["draft_subject"],
+            outcome="no_reply",
+        )
 
         with db() as conn:
             cur = conn.cursor()
@@ -175,11 +175,10 @@ def approval_approve(item_id: int, note: str = "") -> str:
                 SET status = %s, reviewed_at = NOW(), reviewer_note = %s
                 WHERE id = %s
             """, (final_status, note or None, item_id))
-            if success:
-                cur.execute("""
-                    UPDATE contacts SET status = 'contacted', updated_at = NOW()
-                    WHERE id = %s AND status = 'cold'
-                """, (row["contact_id"],))
+            cur.execute("""
+                UPDATE contacts SET status = 'contacted', updated_at = NOW()
+                WHERE id = %s AND status = 'cold'
+            """, (row["contact_id"],))
 
         return json.dumps({
             "approved": True,
