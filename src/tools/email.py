@@ -13,7 +13,7 @@ from email.mime.multipart import MIMEMultipart
 from src.config import (
     PROTON_SMTP_HOST, PROTON_SMTP_PORT,
     PROTON_IMAP_HOST, PROTON_IMAP_PORT,
-    PROTON_EMAIL, PROTON_PASSWORD,
+    PROTON_EMAIL, PROTON_PASSWORD, PROTON_FROM_EMAIL,
     EMAIL_ENABLED,
 )
 from src.tools.db import save_inbox_message
@@ -36,7 +36,7 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = PROTON_EMAIL
+    msg["From"] = PROTON_FROM_EMAIL
     msg["To"] = to_email
     msg.attach(MIMEText(body, "plain", "utf-8"))
 

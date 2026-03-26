@@ -22,6 +22,8 @@ PROTON_SMTP_HOST: str = os.getenv("PROTON_SMTP_HOST", "127.0.0.1")
 PROTON_SMTP_PORT: int = int(os.getenv("PROTON_SMTP_PORT", "1025"))
 PROTON_EMAIL: str = os.getenv("PROTON_EMAIL", "")
 PROTON_PASSWORD: str = os.getenv("PROTON_PASSWORD", "")
+# From address for outgoing emails — can be an alias. Defaults to PROTON_EMAIL.
+PROTON_FROM_EMAIL: str = os.getenv("PROTON_FROM_EMAIL", "") or os.getenv("PROTON_EMAIL", "")
 
 # --- App ---
 HOST: str = os.getenv("HOST", "127.0.0.1")
@@ -68,6 +70,7 @@ ART_MISSION = Mission(
         "Not commercial or templated — each message should feel handwritten."
     ),
     language_default="de",
+    website="https://artbychristopherrehm.com",
 )
 
 ACTIVE_MISSION: Mission = ART_MISSION

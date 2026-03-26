@@ -14,3 +14,4 @@ class Mission:
     fit_criteria: str    # what makes a good match
     outreach_style: str  # tone and approach for written contact
     language_default: str  # ISO 639-1, used when contact has no preference set
+    website: str = ""    # artist/business website, included in email signatures
