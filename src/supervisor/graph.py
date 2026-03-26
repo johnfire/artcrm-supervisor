@@ -22,7 +22,7 @@ from src.config import ACTIVE_MISSION, SCOUT_THRESHOLD, CHEAP_LLM
 from src.tools import (
     save_contact, get_candidates, get_cold_contacts, update_contact,
     get_contacts_needing_enrichment, update_contact_details,
-    check_compliance, queue_for_approval, log_interaction, set_opt_out,
+    check_compliance, queue_for_approval, log_interaction, get_contact_interactions, set_opt_out,
     get_overdue_contacts, get_unprocessed_inbox, mark_message_processed,
     match_contact_by_email, save_inbox_message,
     start_run, finish_run,
@@ -94,6 +94,8 @@ def _build_agents():
     outreach = create_outreach_agent(
         llm=outreach_llm,
         fetch_ready_contacts=get_cold_contacts,
+        fetch_interactions=get_contact_interactions,
+        fetch_page=fetch_page,
         check_compliance=check_compliance,
         queue_for_approval=queue_for_approval,
         start_run=start_run,

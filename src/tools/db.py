@@ -539,6 +539,26 @@ def mark_research_target_done(city: str, industry: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Interactions
+# ---------------------------------------------------------------------------
+
+def get_contact_interactions(contact_id: int) -> list[dict]:
+    """Return all logged interactions for a contact, newest first."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT interaction_date, method, direction, summary, outcome
+            FROM interactions
+            WHERE contact_id = %s
+            ORDER BY interaction_date DESC
+            """,
+            (contact_id,),
+        )
+        return [_serialize_row(dict(r)) for r in cur.fetchall()]
+
+
+# ---------------------------------------------------------------------------
 # Agent run logging
 # ---------------------------------------------------------------------------
 
