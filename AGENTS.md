@@ -1,6 +1,6 @@
 # ArtCRM Agents — How They Work
 
-This document explains all five agents in the artcrm system, how they interact, and how the whole thing relates to `theo-hits-the-road`.
+This document explains all six agents in the artcrm system, how they interact, and how the whole thing relates to `theo-hits-the-road`.
 
 ---
 
@@ -12,16 +12,16 @@ This document explains all five agents in the artcrm system, how they interact, 
 
 ---
 
-## The five agents
+## The six agents
 
 ### 1. Supervisor (artcrm-supervisor)
 
-**What it is:** The orchestrator. Not really an "agent" itself — it's a LangGraph `StateGraph` that runs the four worker agents in sequence on a schedule.
+**What it is:** The orchestrator. Not really an "agent" itself — it's a LangGraph `StateGraph` that runs the five worker agents in sequence.
 
 **Run order:**
 
 ```
-research → scout → outreach → followup
+research → enrich → scout → outreach → followup
 ```
 
 **How it works:**
@@ -37,51 +37,106 @@ research → scout → outreach → followup
 **Configuration knobs:**
 
 - `ACTIVE_MISSION` in `src/config.py` — what the agents are working toward
-- `RESEARCH_TARGETS` in `src/supervisor/targets.py` — which cities/industries to research
+- `SCAN_LEVELS` in `src/supervisor/targets.py` — Google Maps search terms per scan level
 - `SCOUT_THRESHOLD` in `.env` — minimum fit score (0–100) to promote a contact
+- `EMAIL_ENABLED` in `.env` — set to `false` to disable all outgoing email
 
 ---
 
 ### 2. Research Agent (artcrm-research-agent)
 
-**What it does:** Finds new potential contacts for a given city + industry and saves them to the database as `status=candidate`.
+**What it does:** Finds new potential contacts for a given city + level combination and saves them to the database as `status=candidate`.
 
-**Inputs:** `city`, `industry`, `country`
+**Inputs:** `city`, `country`, `level` (1–5)
+
+**Scan levels:**
+
+| Level | What it finds                                          |
+| ----- | ------------------------------------------------------ |
+| 1     | Galleries, cafes, interior designers, coworking spaces |
+| 2     | Gift shops, esoteric/wellness shops, concept stores    |
+| 3     | Independent restaurants                                |
+| 4     | Corporate offices and headquarters                     |
+| 5     | Hotels                                                 |
+
+Level 1 must be run before any other level. Subsequent levels can be run in any order.
 
 **Steps inside the agent:**
 
-1. **plan_queries** — asks the LLM to generate a list of search queries based on the mission and target
-2. **run_searches** — executes each query against Overpass (geo/OSM) and DuckDuckGo (web)
-3. **extract_contacts** — asks the LLM to parse the raw search results into structured contact records
-4. **save_contacts** — writes each contact to the `contacts` table with `status=candidate`; deduplication key is `(name, city)` so re-runs are safe
+1. **run_maps_search** — runs fixed German-language search terms for the level against the Google Maps Places API. Returns name, address, website, phone directly from Maps data. Deduplicates by name.
+2. **run_web_search** — two targeted DuckDuckGo queries per level to supplement Maps data and catch venues Maps might miss.
+3. **fetch_pages** — visits the top 3 URLs found, strips HTML to plain text, feeds the content to the extraction LLM. This is how emails, contact names, and gallery style signals get extracted from actual venue websites.
+4. **extract_contacts** — LLM parses all raw results into structured contact records. Writes 2–3 sentence notes per venue including fit signals. Includes ALL venues found — no filtering at this stage.
+5. **save_contacts** — writes each contact to `contacts` with `status=candidate`. Deduplication key is `(name, city)` so re-runs are safe.
 
-**LLM:** deepseek-chat (fast, cheap — this is volume work)
+**LLM:** `CHEAP_LLM` env var (deepseek-chat or claude-haiku) — this is volume work.
 
 **Output:** contacts in the database with `status=candidate`
 
+**City registry:** Every city scanned is tracked in the `cities` and `city_scans` tables — what level was run, when, and how many contacts were found. Visible at `/research/`.
+
 ---
 
-### 3. Scout Agent (artcrm-scout-agent)
+### 3. Enrichment Agent (artcrm-enrichment-agent)
 
-**What it does:** Evaluates every `candidate` contact against the mission and decides whether to pursue them.
+**What it does:** Fills in missing contact details — website, email, phone — for contacts that came back from research without them. Runs automatically between research and scout on every pipeline invocation.
+
+**Inputs:** `limit` (how many contacts to process per run, default 50)
+
+**Why it exists:** The Google Maps Places API returns venue names, addresses, and often a website and phone number — but email addresses are rarely in Maps data. The enrichment agent searches the web for each contact and extracts whatever it finds from search snippets.
+
+**Steps inside the agent:**
+
+1. **fetch** — pulls contacts where `website` is missing OR `email` is missing, ordered by `created_at`. Skips contacts that already have both.
+2. **enrich_all** — for each contact:
+   - Builds a search query: `"{name} {city} website email contact"`
+   - Runs it through DuckDuckGo web search
+   - Asks the LLM to extract website URL, email address, and phone number from the search snippets
+3. **apply_results** — writes whatever was found back to the contact record. Partial updates are fine — if only an email was found, only the email gets written.
+
+**LLM:** `CHEAP_LLM` env var (deepseek-chat or claude-haiku)
+
+**Output:** contacts updated with website/email/phone where found. No status change — enrichment doesn't promote or drop anyone.
+
+**Note:** Enrichment doesn't fetch pages — it only reads search snippets. The research agent already fetched pages during discovery. The scout agent fetches gallery pages again during evaluation (for a fuller read).
+
+---
+
+### 4. Scout Agent (artcrm-scout-agent)
+
+**What it does:** Evaluates every `candidate` contact and decides whether to pursue them.
 
 **Inputs:** `limit` (how many candidates to process per run)
+
+**The key insight:** Most venue types — cafes, hotels, restaurants, coworking spaces, corporate offices — are worth contacting regardless. The only venue that needs real evaluation is galleries, because a gallery that only shows Gerhard Richter is a completely different thing from one that shows emerging regional artists.
 
 **Steps inside the agent:**
 
 1. **fetch** — pulls all contacts where `status=candidate`
-2. **score_all** — for each contact, asks the LLM: "How well does this venue fit our mission? Score 0–100 and explain." Records the score and reasoning.
-3. **apply_scores** — promotes contacts above `SCOUT_THRESHOLD` to `status=cold`, drops the rest to `status=dropped`. Writes the score and LLM reasoning into the contact's notes.
+2. **split_and_promote** — separates candidates by type:
+   - **Non-galleries** (cafes, hotels, restaurants, coworking, interior designers, etc.) → promoted directly to `status=cold` with no LLM call. No evaluation needed.
+   - **Galleries** → sent to the research pipeline below.
+3. **fetch_gallery_websites** — for each gallery, fetches the gallery website and reads up to 4000 characters of content. Galleries with no website still proceed — the LLM falls back to research notes.
+4. **score_galleries** — for each gallery, the LLM reads the website content and notes and asks: does this gallery show emerging, regional, or mid-career artists? Or only blue-chip / internationally established names?
+5. **apply_scores** — writes the outcome to each gallery contact:
+   - `cold` — shows emerging/regional/mid-career artists, worth contacting
+   - `maybe` — website unclear, too thin, or mixed signals — flagged for manual review
+   - `dropped` — exclusively blue-chip or no fit
 
-**LLM:** deepseek-chat
+**LLM:** `CHEAP_LLM` env var for gallery evaluation (reading + reasoning)
 
-**Key behavior:** `dropped` contacts stay in the database. If you lower the threshold later and re-import candidates, the scout can re-evaluate them.
+**What the LLM looks for:**
 
-**Output:** contacts moved to either `status=cold` (ready for outreach) or `status=dropped`
+- Artist names mentioned on the website (regional unknowns vs. internationally famous)
+- Language like _zeitgenössisch_, _Nachwuchs_, _regional_, _auf Kommission_, _emerging_
+- Exhibition history: rotating shows, open submissions, artist residencies
+- Negative signals: exclusively famous artists, auction-house style, permanent collection only
+
+**Output:** contacts moved to `cold`, `maybe`, or `dropped`. The scout's reasoning is written into the contact's notes field.
 
 ---
 
-### 4. Outreach Agent (artcrm-outreach-agent)
+### 5. Outreach Agent (artcrm-outreach-agent)
 
 **What it does:** Drafts a personalized first-contact email for each `cold` contact and puts it in the approval queue. Does not send anything.
 
@@ -95,19 +150,19 @@ research → scout → outreach → followup
    - Asks the LLM to write a first-contact email in the contact's preferred language, tailored to the mission and venue
 3. **queue_drafts** — inserts approved drafts into `approval_queue` with `status=pending`
 
-**LLM:** deepseek-reasoner (slower, higher quality — email quality matters here)
+**LLM:** Claude Sonnet (slower, higher quality — email quality matters here)
 
 **Output:** rows in `approval_queue` waiting for human review at `/approvals/`
 
 **What happens after you approve:**
 
-- Email is sent via Proton Bridge SMTP
+- Email is sent via Proton Bridge SMTP (if `EMAIL_ENABLED=true`)
 - An interaction is logged in `interactions`
 - Contact moves to `status=contacted`
 
 ---
 
-### 5. Follow-up Agent (artcrm-followup-agent)
+### 6. Follow-up Agent (artcrm-followup-agent)
 
 **What it does:** Handles everything that happens after the first email has been sent. Two work streams per run.
 
@@ -127,7 +182,7 @@ research → scout → outreach → followup
 
 **send_all_emails** — sends everything in the queue (replies + follow-ups) directly via Proton Bridge SMTP, then logs each send as an interaction.
 
-**LLM:** deepseek-reasoner (writing quality matters for both replies and follow-ups)
+**LLM:** Claude Sonnet (writing quality matters for both replies and follow-ups)
 
 **Key difference from outreach:** the follow-up agent sends autonomously. There's no approval step. The activity feed at `/activity/` is the audit trail.
 
@@ -140,25 +195,29 @@ research → scout → outreach → followup
       ↓
   candidate
       ↓
+[enrichment_agent]  ← fills in website/email/phone, no status change
+      ↓
 [scout_agent]
-    ↙   ↘
-  cold  dropped
+    ↙   ↓   ↘
+  cold maybe dropped
     ↓
 [outreach_agent → you approve]
       ↓
   contacted
       ↓
 [followup_agent]
-    ↙   ↘
-  (stays   dormant  ← opt-out received
+    ↙         ↘
+(stays       dormant  ← opt-out received
 contacted)
 ```
+
+`maybe` contacts sit until you review them manually. Lowering `SCOUT_THRESHOLD` or reviewing `/contacts/?status=maybe` are the two paths forward.
 
 ---
 
 ## How the agents are wired together
 
-The four worker agents are **tool-agnostic**. Each one defines its dependencies as Python Protocols (type-checked interfaces) and accepts them as constructor arguments. This means:
+The five worker agents are **tool-agnostic**. Each one defines its dependencies as Python Protocols (type-checked interfaces) and accepts them as constructor arguments. This means:
 
 - The agents contain no database imports, no email imports, no config imports
 - The supervisor injects concrete implementations at startup
@@ -170,13 +229,14 @@ The supervisor (`src/supervisor/graph.py`) is the only place that knows about th
 
 ## At a glance
 
-| Agent      | Reads from DB                            | Writes to DB                  | LLM               | Sends email        |
-| ---------- | ---------------------------------------- | ----------------------------- | ----------------- | ------------------ |
-| Supervisor | —                                        | `agent_runs`                  | —                 | —                  |
-| Research   | —                                        | `contacts` (candidate)        | deepseek-chat     | —                  |
-| Scout      | `contacts` (candidate)                   | `contacts` (cold/dropped)     | deepseek-chat     | —                  |
-| Outreach   | `contacts` (cold)                        | `approval_queue`              | deepseek-reasoner | —                  |
-| Follow-up  | `inbox_messages`, `contacts` (contacted) | `interactions`, `consent_log` | deepseek-reasoner | Yes (autonomously) |
+| Agent      | Reads from DB                            | Writes to DB                     | LLM           | Sends email        |
+| ---------- | ---------------------------------------- | -------------------------------- | ------------- | ------------------ |
+| Supervisor | —                                        | `agent_runs`                     | —             | —                  |
+| Research   | —                                        | `contacts` (candidate)           | CHEAP_LLM     | —                  |
+| Enrichment | `contacts` (missing website/email)       | `contacts` (website/email/phone) | CHEAP_LLM     | —                  |
+| Scout      | `contacts` (candidate)                   | `contacts` (cold/maybe/dropped)  | CHEAP_LLM     | —                  |
+| Outreach   | `contacts` (cold)                        | `approval_queue`                 | Claude Sonnet | —                  |
+| Follow-up  | `inbox_messages`, `contacts` (contacted) | `interactions`, `consent_log`    | Claude Sonnet | Yes (autonomously) |
 
 ---
 
@@ -186,6 +246,13 @@ The supervisor (`src/supervisor/graph.py`) is the only place that knows about th
 
 ```bash
 uv run python -m src.supervisor.run
+```
+
+**Research only (single city + level):**
+
+```bash
+uv run python -m src.supervisor.run_research --city Konstanz --level 1
+uv run python -m src.supervisor.run_research --city Innsbruck --level 1 --country AT
 ```
 
 **Individual agent (for debugging):**
