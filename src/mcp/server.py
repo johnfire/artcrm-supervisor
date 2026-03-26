@@ -14,7 +14,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from src.db.connection import db
-from src.tools.db import log_interaction
+from src.tools.db import log_interaction, update_city_market
 from src.tools.email import send_email
 
 logger = logging.getLogger(__name__)
@@ -239,6 +239,82 @@ def agent_runs(limit: int = 20) -> str:
         return json.dumps(runs, indent=2)
     except Exception as e:
         logger.error("agent_runs failed: %s", e)
+        return json.dumps({"error": str(e)})
+
+
+# =============================================================================
+# MANUAL CONTACT MANAGEMENT
+# =============================================================================
+
+@server.tool()
+def manual_drop(contact_id: int, reason: str = "") -> str:
+    """
+    Manually drop a contact — mark as status=dropped with your reason.
+    Use this for venues you know are a waste of time, wrong fit, or already visited.
+    """
+    try:
+        with db() as conn:
+            cur = conn.cursor()
+            note = f"[Manually dropped] {reason}".strip() if reason else "[Manually dropped]"
+            cur.execute("""
+                UPDATE contacts
+                SET status = 'dropped',
+                    notes = CASE WHEN notes IS NULL OR notes = '' THEN %s
+                                 ELSE notes || E'\n' || %s END,
+                    updated_at = NOW()
+                WHERE id = %s
+            """, (note, note, contact_id))
+            if cur.rowcount == 0:
+                return json.dumps({"error": f"Contact {contact_id} not found"})
+            cur.execute("SELECT name, city FROM contacts WHERE id = %s", (contact_id,))
+            row = cur.fetchone()
+        return json.dumps({"dropped": True, "contact": row["name"], "city": row["city"], "reason": reason})
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@server.tool()
+def manual_promote(contact_id: int, note: str = "") -> str:
+    """
+    Manually promote a contact to cold — bypasses scout scoring.
+    Use this for venues you know personally or are confident are a good fit.
+    """
+    try:
+        with db() as conn:
+            cur = conn.cursor()
+            note_text = f"[Manually promoted] {note}".strip() if note else "[Manually promoted]"
+            cur.execute("""
+                UPDATE contacts
+                SET status = 'cold',
+                    notes = CASE WHEN notes IS NULL OR notes = '' THEN %s
+                                 ELSE notes || E'\n' || %s END,
+                    updated_at = NOW()
+                WHERE id = %s
+            """, (note_text, note_text, contact_id))
+            if cur.rowcount == 0:
+                return json.dumps({"error": f"Contact {contact_id} not found"})
+            cur.execute("SELECT name, city FROM contacts WHERE id = %s", (contact_id,))
+            row = cur.fetchone()
+        return json.dumps({"promoted": True, "contact": row["name"], "city": row["city"]})
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@server.tool()
+def set_city_notes(city: str, notes: str, character: str = "", country: str = "DE") -> str:
+    """
+    Add or update market context for a city.
+    character: tourist | mixed | upscale | unknown (leave empty to keep existing)
+    notes: free text — your observations about the local art market.
+    This is used by the scout agent when evaluating galleries in this city.
+    """
+    try:
+        found = update_city_market(city, country, character=character, notes=notes)
+        if not found:
+            return json.dumps({"error": f"City '{city}' not found in registry"})
+        return json.dumps({"updated": True, "city": city, "country": country.upper(),
+                           "character": character or "unchanged", "notes": notes})
+    except Exception as e:
         return json.dumps({"error": str(e)})
 
 

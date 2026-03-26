@@ -380,6 +380,40 @@ def get_cities(country: str = "") -> list[dict]:
         return [dict(r) for r in cur.fetchall()]
 
 
+def get_city_market_context(city: str, country: str = "DE") -> dict:
+    """Return market_character and market_notes for a city. Returns empty dict if not found."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT market_character, market_notes FROM cities WHERE lower(city) = lower(%s) AND country = %s",
+            (city, country.upper()),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else {"market_character": "unknown", "market_notes": ""}
+
+
+def update_city_market(city: str, country: str = "DE", character: str = "", notes: str = "") -> bool:
+    """Update market_character and/or market_notes for a city. Returns True if found."""
+    with db() as conn:
+        cur = conn.cursor()
+        if character and notes:
+            cur.execute(
+                "UPDATE cities SET market_character = %s, market_notes = %s WHERE lower(city) = lower(%s) AND country = %s",
+                (character, notes, city, country.upper()),
+            )
+        elif character:
+            cur.execute(
+                "UPDATE cities SET market_character = %s WHERE lower(city) = lower(%s) AND country = %s",
+                (character, city, country.upper()),
+            )
+        elif notes:
+            cur.execute(
+                "UPDATE cities SET market_notes = %s WHERE lower(city) = lower(%s) AND country = %s",
+                (notes, city, country.upper()),
+            )
+        return cur.rowcount > 0
+
+
 def add_city(city: str, country: str = "DE", region: str = "") -> int:
     """Add a city to the master list. Returns city_id. Safe to call if already exists."""
     with db() as conn:
