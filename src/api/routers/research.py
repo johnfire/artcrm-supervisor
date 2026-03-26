@@ -2,38 +2,41 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
-from src.db.connection import db
+from src.tools.db import get_all_city_scan_status
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
 
+LEVEL_LABELS = {
+    1: "Galleries / Cafes / Designers / Coworking",
+    2: "Gift / Esoteric / Concept Stores",
+    3: "Restaurants",
+    4: "Corporate Offices",
+    5: "Hotels",
+}
+
 
 @router.get("/research/", response_class=HTMLResponse)
-def research_queue(request: Request):
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT city, country,
-                   COUNT(*) AS industries,
-                   COUNT(*) FILTER (WHERE last_run_at IS NOT NULL) AS done,
-                   MAX(last_run_at) AS last_run_at,
-                   SUM(run_count) AS total_runs
-            FROM research_queue
-            GROUP BY city, country
-            ORDER BY MIN(COALESCE(last_run_at, '1970-01-01')) ASC, city ASC
-        """)
-        cities = [dict(r) for r in cur.fetchall()]
+def research_page(request: Request):
+    cities = get_all_city_scan_status()
 
-        cur.execute("SELECT COUNT(*) AS cnt FROM research_queue WHERE last_run_at IS NULL")
-        pending = cur.fetchone()["cnt"]
+    # Build per-city level map for easy template access
+    for c in cities:
+        scans_by_level = {s["level"]: s for s in (c["scans"] or [])}
+        c["levels"] = [scans_by_level.get(lvl) for lvl in range(1, 6)]
+        c["total_contacts"] = sum(s["contacts_found"] for s in (c["scans"] or []))
+        c["scanned_levels"] = len(c["scans"] or [])
 
-        cur.execute("SELECT COUNT(*) AS cnt FROM research_queue WHERE last_run_at IS NOT NULL")
-        completed = cur.fetchone()["cnt"]
+    total = len(cities)
+    level1_done = sum(1 for c in cities if any((s or {}).get("level") == 1 for s in c["levels"] if s))
+    unscanned = sum(1 for c in cities if not c["scans"])
 
     return templates.TemplateResponse("research.html", {
         "request": request,
         "cities": cities,
-        "pending": pending,
-        "completed": completed,
-        "total": pending + completed,
+        "level_labels": LEVEL_LABELS,
+        "total": total,
+        "level1_done": level1_done,
+        "unscanned": unscanned,
+        "levels": range(1, 6),
     })

@@ -1,6 +1,7 @@
 """
 Web and geographic search tools.
 geo_search uses the Overpass API (OpenStreetMap) — no API key required.
+google_maps_search uses Google Places API (New) — requires GOOGLE_MAPS_API_KEY.
 web_search uses DuckDuckGo — no API key required.
 """
 import logging
@@ -11,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 OVERPASS_TIMEOUT = (10, 60)  # (connect, read)
+
+GOOGLE_PLACES_URL = "https://places.googleapis.com/v1/places:searchText"
 
 # Maps industry names to OpenStreetMap tag queries.
 # Each entry is a list of (key, value) pairs tried in a single union query.
@@ -89,6 +92,79 @@ def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
 
     logger.info("geo_search: %d results for '%s' in %s", len(results), query, city)
     return results
+
+
+def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]:
+    """
+    Search for venues using Google Places API (New).
+    Returns list of dicts with: name, address, city, country, website, phone.
+    Falls back to empty list if API key is missing or request fails.
+    """
+    from src.config import GOOGLE_MAPS_API_KEY
+    if not GOOGLE_MAPS_API_KEY:
+        logger.warning("google_maps_search: GOOGLE_MAPS_API_KEY not set")
+        return []
+
+    payload = {
+        "textQuery": f"{query} {city}",
+        "languageCode": "de",
+        "regionCode": country,
+        "maxResultCount": 20,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber",
+    }
+    try:
+        resp = httpx.post(GOOGLE_PLACES_URL, json=payload, headers=headers, timeout=15)
+        resp.raise_for_status()
+        places = resp.json().get("places", [])
+    except Exception as e:
+        logger.warning("google_maps_search failed for '%s' in %s: %s", query, city, e)
+        return []
+
+    results = []
+    for p in places:
+        name = p.get("displayName", {}).get("text", "")
+        if not name:
+            continue
+        results.append({
+            "name": name,
+            "address": p.get("formattedAddress", ""),
+            "city": city,
+            "country": country,
+            "website": p.get("websiteUri", ""),
+            "phone": p.get("nationalPhoneNumber", "") or p.get("internationalPhoneNumber", ""),
+            "email": "",
+        })
+
+    logger.info("google_maps_search: %d results for '%s' in %s", len(results), query, city)
+    return results
+
+
+def fetch_page(url: str, max_chars: int = 3000) -> str:
+    """
+    Fetch a web page and return its plain text content (HTML stripped).
+    Returns empty string on any failure.
+    """
+    try:
+        resp = httpx.get(url, timeout=10, follow_redirects=True, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)"
+        })
+        resp.raise_for_status()
+        html = resp.text
+        # Remove script and style blocks entirely
+        import re
+        html = re.sub(r'<(script|style)[^>]*>.*?</\1>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
+        # Strip remaining HTML tags
+        text = re.sub(r'<[^>]+>', ' ', html)
+        # Collapse whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text[:max_chars]
+    except Exception as e:
+        logger.debug("fetch_page failed for %s: %s", url, e)
+        return ""
 
 
 def web_search(query: str, max_results: int = 8) -> list[dict]:

@@ -363,17 +363,143 @@ def mark_message_processed(inbox_message_id: int, contact_id: int | None) -> Non
 
 
 # ---------------------------------------------------------------------------
-# Research queue
+# Cities + scan levels
+# ---------------------------------------------------------------------------
+
+def get_cities(country: str = "") -> list[dict]:
+    """Return all cities, optionally filtered by country."""
+    with db() as conn:
+        cur = conn.cursor()
+        if country:
+            cur.execute(
+                "SELECT * FROM cities WHERE country = %s ORDER BY city",
+                (country,),
+            )
+        else:
+            cur.execute("SELECT * FROM cities ORDER BY country, region, city")
+        return [dict(r) for r in cur.fetchall()]
+
+
+def add_city(city: str, country: str = "DE", region: str = "") -> int:
+    """Add a city to the master list. Returns city_id. Safe to call if already exists."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO cities (city, country, region)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (city, country) DO UPDATE SET region = EXCLUDED.region
+            RETURNING id
+            """,
+            (city, country, region),
+        )
+        return cur.fetchone()["id"]
+
+
+def get_city_scan_status(city: str, country: str = "DE") -> list[dict]:
+    """Return scan records for a city across all levels."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT cs.level, cs.last_run_at, cs.contacts_found, cs.run_count, cs.due_for_rerun
+            FROM city_scans cs
+            JOIN cities ci ON ci.id = cs.city_id
+            WHERE LOWER(ci.city) = LOWER(%s) AND ci.country = %s
+            ORDER BY cs.level
+            """,
+            (city, country),
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
+def get_all_city_scan_status() -> list[dict]:
+    """Return all cities with their scan status across all levels."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT
+                ci.id, ci.city, ci.country, ci.region,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'level', cs.level,
+                            'last_run_at', cs.last_run_at,
+                            'contacts_found', cs.contacts_found,
+                            'run_count', cs.run_count,
+                            'due_for_rerun', cs.due_for_rerun
+                        ) ORDER BY cs.level
+                    ) FILTER (WHERE cs.level IS NOT NULL),
+                    '[]'
+                ) AS scans
+            FROM cities ci
+            LEFT JOIN city_scans cs ON cs.city_id = ci.id
+            GROUP BY ci.id, ci.city, ci.country, ci.region
+            ORDER BY ci.country, ci.region, ci.city
+            """,
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
+def record_scan_result(city: str, country: str, level: int, contacts_found: int) -> None:
+    """Record the result of a completed scan. Creates or updates the city_scans row."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM cities WHERE LOWER(city) = LOWER(%s) AND country = %s", (city, country))
+        row = cur.fetchone()
+        if not row:
+            cur.execute(
+                "INSERT INTO cities (city, country) VALUES (%s, %s) RETURNING id",
+                (city, country),
+            )
+            row = cur.fetchone()
+        city_id = row["id"]
+        cur.execute(
+            """
+            INSERT INTO city_scans (city_id, level, last_run_at, contacts_found, run_count)
+            VALUES (%s, %s, NOW(), %s, 1)
+            ON CONFLICT (city_id, level) DO UPDATE
+                SET last_run_at = NOW(),
+                    contacts_found = city_scans.contacts_found + EXCLUDED.contacts_found,
+                    run_count = city_scans.run_count + 1,
+                    due_for_rerun = FALSE
+            """,
+            (city_id, level, contacts_found),
+        )
+
+
+def can_run_level(city: str, country: str, level: int) -> tuple[bool, str]:
+    """
+    Check if a scan level can be run on a city.
+    Level 1 can always run. All others require level 1 to be completed first.
+    Returns (allowed, reason).
+    """
+    if level == 1:
+        return True, ""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT cs.level FROM city_scans cs
+            JOIN cities ci ON ci.id = cs.city_id
+            WHERE LOWER(ci.city) = LOWER(%s) AND ci.country = %s AND cs.level = 1
+            """,
+            (city, country),
+        )
+        if not cur.fetchone():
+            return False, f"Level 1 must be run on {city} first"
+    return True, ""
+
+
+# ---------------------------------------------------------------------------
+# Research queue (legacy — kept for reference, not used by new system)
 # ---------------------------------------------------------------------------
 
 def get_next_research_targets(cities_per_run: int = 3) -> list[dict]:
-    """
-    Return the next batch of research targets — all industries for the next
-    N cities that haven't been researched yet (or were researched longest ago).
-    """
+    """Legacy function — returns next batch from old research_queue table."""
     with db() as conn:
         cur = conn.cursor()
-        # Pick the next N cities ordered by last_run_at ASC NULLS FIRST
         cur.execute(
             """
             SELECT DISTINCT city, country,
@@ -386,10 +512,8 @@ def get_next_research_targets(cities_per_run: int = 3) -> list[dict]:
             (cities_per_run,),
         )
         cities = [(r["city"], r["country"]) for r in cur.fetchall()]
-
         if not cities:
             return []
-
         targets = []
         for city, country in cities:
             cur.execute(
@@ -401,7 +525,7 @@ def get_next_research_targets(cities_per_run: int = 3) -> list[dict]:
 
 
 def mark_research_target_done(city: str, industry: str) -> None:
-    """Record that a city/industry combo was just researched."""
+    """Legacy function — updates old research_queue table."""
     with db() as conn:
         cur = conn.cursor()
         cur.execute(

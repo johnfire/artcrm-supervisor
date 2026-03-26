@@ -23,8 +23,14 @@ from .db import (
     finish_run,
     get_next_research_targets,
     mark_research_target_done,
+    get_cities,
+    add_city,
+    get_city_scan_status,
+    get_all_city_scan_status,
+    record_scan_result,
+    can_run_level,
 )
-from .search import web_search, geo_search
+from .search import web_search, geo_search, google_maps_search, fetch_page
 from .email import send_email, read_inbox
 from .llm import get_llm
 
@@ -36,7 +42,9 @@ __all__ = [
     "save_inbox_message", "get_unprocessed_inbox", "mark_message_processed",
     "match_contact_by_email", "start_run", "finish_run",
     "get_next_research_targets", "mark_research_target_done",
-    "web_search", "geo_search",
+    "get_cities", "add_city", "get_city_scan_status", "get_all_city_scan_status",
+    "record_scan_result", "can_run_level",
+    "web_search", "geo_search", "google_maps_search", "fetch_page",
     "send_email", "read_inbox",
     "get_llm",
 ]

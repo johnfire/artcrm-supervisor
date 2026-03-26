@@ -1,24 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Research Queue — ArtCRM Supervisor{% endblock %}
+{% block title %}Research — ArtCRM Supervisor{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1>Research Queue</h1>
-  <span class="muted">{{ completed }}/{{ total }} cities done — {{ pending }} pending</span>
+  <h1>Research</h1>
+  <span class="muted">{{ total }} cities — {{ level1_done }} level 1 done — {{ unscanned }} unscanned</span>
 </div>
 
 <div class="stats-row">
   <div class="stat">
     <span class="stat-value">{{ total }}</span>
-    <span class="stat-label">total cities</span>
+    <span class="stat-label">cities</span>
   </div>
   <div class="stat">
-    <span class="stat-value">{{ completed }}</span>
-    <span class="stat-label">researched</span>
+    <span class="stat-value">{{ level1_done }}</span>
+    <span class="stat-label">level 1 done</span>
   </div>
   <div class="stat">
-    <span class="stat-value">{{ pending }}</span>
-    <span class="stat-label">pending</span>
+    <span class="stat-value">{{ unscanned }}</span>
+    <span class="stat-label">unscanned</span>
   </div>
 </div>
 
@@ -26,31 +26,38 @@
   <thead>
     <tr>
       <th>City</th>
-      <th>Country</th>
-      <th>Progress</th>
-      <th>Last run</th>
-      <th>Total runs</th>
+      <th>Region</th>
+      <th>L1</th>
+      <th>L2</th>
+      <th>L3</th>
+      <th>L4</th>
+      <th>L5</th>
+      <th>Contacts</th>
     </tr>
   </thead>
   <tbody>
     {% for c in cities %}
     <tr>
       <td><strong>{{ c.city }}</strong></td>
-      <td class="muted">{{ c.country }}</td>
-      <td>
-        <span {% if c.done == c.industries %}style="color:var(--success)"{% else %}class="muted"{% endif %}>
-          {{ c.done }}/{{ c.industries }}
-        </span>
-        {% if c.done == 0 %}
-          <span class="muted small"> not started</span>
-        {% elif c.done < c.industries %}
-          <span class="muted small"> in progress</span>
+      <td class="muted small">{{ c.region or c.country }}</td>
+      {% for scan in c.levels %}
+      <td class="center">
+        {% if scan %}
+          <span title="Last run: {{ scan.last_run_at.strftime('%Y-%m-%d') if scan.last_run_at else '—' }} | Found: {{ scan.contacts_found }}"
+                style="color:var(--success); cursor:default">●</span>
+        {% else %}
+          <span class="muted" title="Not yet run">○</span>
         {% endif %}
       </td>
-      <td class="muted">{{ c.last_run_at.strftime('%Y-%m-%d') if c.last_run_at else '—' }}</td>
-      <td class="muted">{{ c.total_runs or 0 }}</td>
+      {% endfor %}
+      <td class="muted">{{ c.total_contacts or '—' }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
+
+<div class="muted small" style="margin-top:1rem">
+  ● = done &nbsp;○ = not run &nbsp;|&nbsp;
+  {% for lvl, label in level_labels.items() %}L{{ lvl }}: {{ label }}{% if not loop.last %} &nbsp;|&nbsp; {% endif %}{% endfor %}
+</div>
 {% endblock %}

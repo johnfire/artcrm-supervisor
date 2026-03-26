@@ -18,7 +18,7 @@ from typing import TypedDict
 
 from langgraph.graph import StateGraph, END
 
-from src.config import ACTIVE_MISSION, SCOUT_THRESHOLD
+from src.config import ACTIVE_MISSION, SCOUT_THRESHOLD, CHEAP_LLM
 from src.tools import (
     save_contact, get_candidates, get_cold_contacts, update_contact,
     get_contacts_needing_enrichment, update_contact_details,
@@ -26,8 +26,8 @@ from src.tools import (
     get_overdue_contacts, get_unprocessed_inbox, mark_message_processed,
     match_contact_by_email, save_inbox_message,
     start_run, finish_run,
-    get_next_research_targets, mark_research_target_done,
-    web_search, geo_search,
+    record_scan_result, can_run_level,
+    web_search, geo_search, google_maps_search, fetch_page,
     send_email, read_inbox,
     get_llm,
 )
@@ -43,8 +43,7 @@ logger = logging.getLogger(__name__)
 
 class SupervisorState(TypedDict):
     run_id: int
-    research_targets: list[dict]
-    research_cities: list[str]
+    research_jobs: list[dict]   # list of {city, country, level}
     research_summaries: list[str]
     enrichment_summary: str
     scout_summary: str
@@ -56,16 +55,17 @@ class SupervisorState(TypedDict):
 
 def _build_agents():
     """Instantiate all agents with concrete tools and the active mission."""
-    research_llm = get_llm("deepseek-chat")
-    enrichment_llm = get_llm("deepseek-chat")
-    scout_llm = get_llm("deepseek-chat")
+    research_llm = get_llm(CHEAP_LLM)
+    enrichment_llm = get_llm(CHEAP_LLM)
+    scout_llm = get_llm(CHEAP_LLM)
     outreach_llm = get_llm("claude")
     followup_llm = get_llm("claude")
 
     research = create_research_agent(
         llm=research_llm,
         web_search=web_search,
-        geo_search=geo_search,
+        geo_search=google_maps_search,
+        fetch_page=fetch_page,
         save_contact=save_contact,
         start_run=start_run,
         finish_run=finish_run,
@@ -126,14 +126,13 @@ def create_supervisor(checkpointer=None):
     research_agent, enrichment_agent, scout_agent, outreach_agent, followup_agent = _build_agents()
 
     def init(state: SupervisorState) -> dict:
-        targets = get_next_research_targets(cities_per_run=3)
-        cities = sorted({t["city"] for t in targets})
-        run_id = start_run("supervisor", {"targets": len(targets), "cities": cities})
-        logger.info("supervisor: starting run_id=%d — researching: %s", run_id, ", ".join(cities))
+        jobs = state.get("research_jobs", [])
+        cities = sorted({j["city"] for j in jobs})
+        run_id = start_run("supervisor", {"jobs": len(jobs), "cities": cities})
+        logger.info("supervisor: starting run_id=%d — researching: %s", run_id, ", ".join(cities) or "none")
         return {
             "run_id": run_id,
-            "research_targets": targets,
-            "research_cities": cities,
+            "research_jobs": jobs,
             "research_summaries": [],
             "enrichment_summary": "",
             "scout_summary": "",
@@ -145,18 +144,29 @@ def create_supervisor(checkpointer=None):
 
     def run_research(state: SupervisorState) -> dict:
         summaries = []
-        for target in state.get("research_targets", []):
+        for job in state.get("research_jobs", []):
+            city = job["city"]
+            country = job.get("country", "DE")
+            level = job.get("level", 1)
+            allowed, reason = can_run_level(city, country, level)
+            if not allowed:
+                msg = f"skipped {city} level {level}: {reason}"
+                logger.warning(msg)
+                summaries.append(msg)
+                continue
             try:
                 result = research_agent.invoke({
-                    "city": target["city"],
-                    "industry": target["industry"],
-                    "country": target.get("country", "DE"),
+                    "city": city,
+                    "country": country,
+                    "level": level,
                 })
-                summaries.append(result.get("summary", ""))
-                logger.info("research: %s", result.get("summary", ""))
-                mark_research_target_done(target["city"], target["industry"])
+                summary = result.get("summary", "")
+                contacts_found = len(result.get("saved_ids", []))
+                summaries.append(summary)
+                logger.info("research: %s", summary)
+                record_scan_result(city, country, level, contacts_found)
             except Exception as e:
-                msg = f"research failed for {target['city']}/{target['industry']}: {e}"
+                msg = f"research failed for {city} level {level}: {e}"
                 logger.error(msg)
                 summaries.append(msg)
         return {"research_summaries": summaries}
@@ -202,7 +212,7 @@ def create_supervisor(checkpointer=None):
             return {"followup_summary": msg, "errors": state["errors"] + [msg]}
 
     def generate_report(state: SupervisorState) -> dict:
-        cities = state.get("research_cities", [])
+        cities = sorted({j["city"] for j in state.get("research_jobs", [])})
         lines = [
             f"Supervisor run completed — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
             f"Cities researched: {', '.join(cities) if cities else '—'}",

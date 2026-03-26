@@ -14,17 +14,17 @@ The system runs a full outreach pipeline autonomously:
 Research → Enrich → Scout → Outreach → Follow-up
 ```
 
-1. **Research** — Searches the web and OpenStreetMap for venues (galleries, hotels, coworking spaces, interior designers, concept stores, etc.) across a queue of 82 cities and counting. Processes 3 cities per day automatically.
+1. **Research** — Uses Google Maps (Places API) to find every relevant venue in a city. Supplements with web search and page fetching to extract contact details. Cities are organised by scan level so you can run a quick level-1 scan first, then go deeper when needed.
 
-2. **Enrich** — For every contact missing a website or email, searches the web and uses an LLM to extract contact details. Runs automatically on every pipeline invocation.
+2. **Enrich** — For every contact missing a website or email, searches the web and uses an LLM to fill in the gaps. Runs automatically on every pipeline invocation.
 
-3. **Scout** — Scores each new contact 0–100 for mission fit. Contacts above the threshold are promoted to outreach. Below it, they're dropped with a reason saved so you can review.
+3. **Scout** — Scores each new contact 0–100 for mission fit. Contacts above the threshold are promoted to outreach. Below it, they're dropped with a reason saved so you can review. Scoring is informed by detailed notes written during research — including signals like "only shows blue-chip artists" or "actively seeks regional emerging artists".
 
 4. **Outreach** — Drafts a personalised first-contact email for each venue ready to be contacted. Each draft goes into an approval queue — you review and send, or reject.
 
 5. **Follow-up** — Reads the inbox, classifies replies (interested / rejected / opt-out), and drafts follow-up emails for contacts that haven't responded in 90+ days.
 
-All of this runs on a schedule. You approve emails and adjust strategy through conversation with Claude — no dashboard required.
+All of this runs on demand. You approve emails and trigger scans through conversation with Claude — no dashboard required.
 
 ---
 
@@ -36,7 +36,7 @@ Each agent is an independent Python package built on LangGraph. They accept tool
 
 | Package                   | What it does                                                       |
 | ------------------------- | ------------------------------------------------------------------ |
-| `artcrm-research-agent`   | Generates search queries, runs geo + web search, extracts contacts |
+| `artcrm-research-agent`   | Google Maps + web search + page fetch, extracts and saves contacts |
 | `artcrm-enrichment-agent` | Finds missing websites and emails for existing contacts            |
 | `artcrm-scout-agent`      | Scores candidates for mission fit, promotes or drops               |
 | `artcrm-outreach-agent`   | Drafts first-contact emails, queues for approval                   |
@@ -44,16 +44,16 @@ Each agent is an independent Python package built on LangGraph. They accept tool
 
 ### Supervisor
 
-A LangGraph `StateGraph` that chains all five agents in sequence. Uses a PostgreSQL checkpointer so a crash mid-run resumes from where it left off.
+A LangGraph `StateGraph` that chains all five agents in sequence. Each agent can also be run standalone — useful for targeted scans or testing individual stages.
 
 ### Tools
 
 Concrete implementations injected into agents at runtime:
 
 - `db.py` — all PostgreSQL operations
-- `search.py` — Overpass geo search + DuckDuckGo web search
+- `search.py` — Google Maps Places API, DuckDuckGo web search, page fetching (HTML → plain text)
 - `email.py` — Proton Bridge SMTP send + IMAP read
-- `llm.py` — LLM factory (DeepSeek for research/scout, Claude for outreach/followup)
+- `llm.py` — LLM factory (configurable: DeepSeek or Claude Haiku for research/scout, Claude Sonnet for outreach/followup)
 
 ### Web UI
 
@@ -63,7 +63,7 @@ FastAPI + Jinja2. Read-only views for reviewing what the agents are doing:
 - `/contacts/` — full contact database with sort, filter, search, and pagination
 - `/people/` — personal contacts (friends, collectors) kept separate from the business pipeline
 - `/activity/` — agent run log
-- `/research/` — research queue showing which cities have been covered and when
+- `/research/` — city registry showing which scan levels have been run and how many contacts were found
 
 ### MCP Server
 
@@ -80,7 +80,11 @@ ART_MISSION = Mission(
     goal="Find venues across Germany and Bavaria that display and sell original artwork...",
     identity="Christopher Rehm, watercolor and oil painter based in Klosterlechfeld, Bavaria",
     targets="galleries, hotel lobbies, restaurants, corporate offices, cafes, coworking spaces",
-    fit_criteria="open to original artwork, contemporary or traditional style welcome...",
+    fit_criteria=(
+        "Strong fit: galleries showing regional, emerging, or mid-career artists; "
+        "venues that sell work on consignment; interior designers who source original art. "
+        "Weak fit: galleries that exclusively represent blue-chip artists; chain businesses."
+    ),
     outreach_style="personal, artist-direct, warm but professional...",
     language_default="de",
 )
@@ -90,21 +94,59 @@ Every agent prompt is built from this object. To repurpose the system for a diff
 
 ---
 
-## Research Queue
+## Research: Scan Levels
 
-Rather than running all research targets in one go, the system maintains a `research_queue` table in the database. Each run picks the 3 cities researched longest ago (or never) and runs all 8 industries for each. At 3 cities per day the full queue of 82 cities completes in ~27 days, then cycles again — useful since new venues open regularly.
+Research is organised into five scan levels. Level 1 is always run first; the others can be run in any order once level 1 is complete. Each level has fixed Google Maps search terms so results are consistent and repeatable.
 
-Current target industries per city:
-`gallery`, `restaurant`, `hotel`, `cafe`, `interior designer`, `coworking space`, `corporate office`, `concept store`
+| Level | What it finds                                          |
+| ----- | ------------------------------------------------------ |
+| 1     | Galleries, cafes, interior designers, coworking spaces |
+| 2     | Gift shops, esoteric/wellness shops, concept stores    |
+| 3     | Independent restaurants                                |
+| 4     | Corporate offices and headquarters                     |
+| 5     | Hotels                                                 |
 
-Current cities: 82 across Germany (Bavaria, Baden-Württemberg), Austria (Tyrol, Vorarlberg, Salzburg), and Switzerland.
+The city registry tracks last scan date, contacts found, and re-run status per level. Currently 82 cities across Germany (Bavaria, Baden-Württemberg), Austria (Tyrol, Vorarlberg, Salzburg), and Switzerland.
+
+### Running a scan
+
+```bash
+# Run level 1 on a city
+uv run python -m src.supervisor.run_research --city Konstanz --level 1
+
+# Austrian city
+uv run python -m src.supervisor.run_research --city Innsbruck --level 1 --country AT
+
+# Run the full pipeline (enrich + scout + outreach + followup, no research)
+uv run python -m src.supervisor.run
+```
+
+Or just tell Claude: _"Run level 1 on Stuttgart"_ — the MCP server handles it.
+
+---
+
+## How Research Works
+
+For each city + level combination the research agent runs three steps:
+
+1. **Google Maps search** — queries the Places API with fixed German-language terms for the level (e.g. `"Kunstgalerie Konstanz"`, `"Innenarchitekt Konstanz"`). Returns name, address, website, phone directly from Maps data.
+
+2. **Web search supplement** — two DuckDuckGo queries add context and catch venues Google Maps might miss.
+
+3. **Page fetch** — visits the top 3 URLs found, strips HTML to plain text, and feeds the content to the extraction LLM. This is what enables pulling emails, contact names, and gallery style signals (e.g. "shows emerging regional artists on consignment") from actual venue websites.
+
+The extraction LLM writes detailed notes on each contact — gallery type, artist level, fit signals — which the scout agent uses for scoring.
 
 ---
 
 ## LLM Strategy
 
-- **DeepSeek** (`deepseek-chat`) — research, enrichment, scouting. High volume, low cost.
-- **Claude** (`claude-sonnet`) — outreach drafts and follow-up emails. Quality matters when a human reads it.
+| Task                           | Model                 | Why                                   |
+| ------------------------------ | --------------------- | ------------------------------------- |
+| Research, enrichment, scouting | `CHEAP_LLM` (env var) | High volume, cost-sensitive           |
+| Outreach drafts, follow-ups    | Claude Sonnet 4.6     | Quality matters when a human reads it |
+
+`CHEAP_LLM` defaults to `deepseek-chat`. Set `CHEAP_LLM=claude-haiku` in `.env` to switch to Claude Haiku 4.5 — useful for comparing result quality.
 
 ---
 
@@ -115,13 +157,14 @@ Current cities: 82 across Germany (Bavaria, Baden-Württemberg), Austria (Tyrol,
 - PostgreSQL with an `artcrm` database
 - `uv` package manager
 - Proton Bridge running locally (for email send/receive)
-- DeepSeek API key
 - Anthropic API key
+- Google Maps API key (Places API New, billing enabled)
+- DeepSeek API key (optional — only needed if using DeepSeek as CHEAP_LLM)
 
 ### Install
 
 ```bash
-git clone https://github.com/your-username/artcrm-supervisor
+git clone https://github.com/chrisRehm/artcrm-supervisor
 cd artcrm-supervisor
 cp .env.example .env
 # fill in .env
@@ -132,8 +175,14 @@ uv sync --extra agents
 
 ```
 DATABASE_URL=postgresql://user:password@localhost/artcrm
-DEEPSEEK_API_KEY=your_key
 ANTHROPIC_API_KEY=your_key
+GOOGLE_MAPS_API_KEY=your_key
+
+# Optional — only if using DeepSeek
+DEEPSEEK_API_KEY=your_key
+
+# LLM for high-volume tasks: deepseek-chat or claude-haiku
+CHEAP_LLM=claude-haiku
 
 PROTON_IMAP_HOST=127.0.0.1
 PROTON_IMAP_PORT=1143
@@ -153,7 +202,7 @@ PORT=8000
 uv run python scripts/migrate.py
 ```
 
-Creates the agent tables (`agent_runs`, `approval_queue`, `consent_log`, `inbox_messages`, `research_queue`, `people`) in your existing database. Does not modify existing tables.
+Creates all tables including the city registry and scan tracking. Does not modify existing tables.
 
 ### Start the UI
 
@@ -166,12 +215,6 @@ uv run python -m src.api.main
 
 ```bash
 uv run python -m src.supervisor.run
-```
-
-### Schedule daily runs (cron)
-
-```cron
-0 7 * * * cd /home/christopher/programming/artcrm-supervisor && /home/christopher/.local/bin/uv run python -m src.supervisor.run >> /home/christopher/logs/supervisor.log 2>&1
 ```
 
 ---
@@ -212,7 +255,7 @@ Dropped contacts are kept in the database with the scout's reasoning in the `not
 ## Repurposing for Another Industry
 
 1. Edit `src/config.py` — write a new `Mission(...)` and set `ACTIVE_MISSION` to it
-2. Edit `src/supervisor/targets.py` — update the `CITIES` list and `INDUSTRIES` for your domain
+2. Edit `src/supervisor/targets.py` — update `SCAN_LEVELS` with relevant Google Maps search terms
 3. Nothing else changes — all agents pick up the new mission automatically
 
 Example missions that would work out of the box:
@@ -233,16 +276,17 @@ artcrm-supervisor/
     config.py               Active mission + env config
     db/
       connection.py         db() context manager
-      migrations/           SQL migration files
+      migrations/           SQL migration files (001–004)
     tools/
       db.py                 All database operations
-      search.py             Geo search + web search
+      search.py             Google Maps + DuckDuckGo + page fetching
       email.py              Proton Bridge SMTP/IMAP
       llm.py                LLM factory
     supervisor/
-      targets.py            City + industry lists
+      targets.py            Scan level definitions (Google Maps terms per level)
       graph.py              LangGraph supervisor graph
-      run.py                Entry point
+      run.py                Full pipeline entry point
+      run_research.py       Standalone research agent runner
     mcp/
       server.py             FastMCP server
     api/
