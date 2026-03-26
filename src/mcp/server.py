@@ -243,6 +243,111 @@ def agent_runs(limit: int = 20) -> str:
 
 
 # =============================================================================
+# RESEARCH STATUS
+# =============================================================================
+
+LEVEL_LABELS = {1: "Galleries/Cafes/Designers/Coworking", 2: "Gift/Esoteric/Concept", 3: "Restaurants", 4: "Corporate", 5: "Hotels"}
+
+@server.tool()
+def research_status(country: str = "", region: str = "") -> str:
+    """
+    Show which cities have been scanned and at what levels.
+    Optionally filter by country (DE/AT/CH) or region (e.g. Bavaria).
+    Returns a readable report grouped by region.
+    """
+    try:
+        with db() as conn:
+            cur = conn.cursor()
+            query = """
+                SELECT ci.city, ci.country, ci.region,
+                    json_agg(
+                        json_build_object('level', cs.level, 'contacts_found', cs.contacts_found,
+                                          'last_run_at', cs.last_run_at::text, 'run_count', cs.run_count)
+                        ORDER BY cs.level
+                    ) FILTER (WHERE cs.level IS NOT NULL) AS scans
+                FROM cities ci
+                LEFT JOIN city_scans cs ON cs.city_id = ci.id
+            """
+            conditions = []
+            params = []
+            if country:
+                conditions.append("ci.country = %s")
+                params.append(country.upper())
+            if region:
+                conditions.append("ci.region ILIKE %s")
+                params.append(f"%{region}%")
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+            query += " GROUP BY ci.id, ci.city, ci.country, ci.region ORDER BY ci.country, ci.region, ci.city"
+            cur.execute(query, params)
+            rows = cur.fetchall()
+
+        # Build readable report
+        current_region = None
+        lines = []
+        total_cities = len(rows)
+        scanned = sum(1 for r in rows if r["scans"])
+        unscanned = total_cities - scanned
+
+        lines.append(f"Research status: {total_cities} cities | {scanned} scanned | {unscanned} unscanned\n")
+
+        for r in rows:
+            reg = f"{r['country']} / {r['region'] or 'Unknown'}"
+            if reg != current_region:
+                current_region = reg
+                lines.append(f"\n{reg}:")
+            scans = r["scans"] or []
+            if not scans:
+                lines.append(f"  {r['city']:30} — not scanned")
+            else:
+                level_parts = []
+                for s in scans:
+                    level_parts.append(f"L{s['level']}:{s['contacts_found']}✓")
+                unrun = [l for l in range(1, 6) if l not in {s['level'] for s in scans}]
+                unrun_str = f"  (L{','.join(map(str,unrun))} pending)" if unrun else ""
+                lines.append(f"  {r['city']:30} — {' '.join(level_parts)}{unrun_str}")
+
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error("research_status failed: %s", e)
+        return f"Error: {e}"
+
+
+@server.tool()
+def run_research(city: str, level: int, country: str = "DE") -> str:
+    """
+    Trigger a research scan for a specific city and level.
+    Level 1 must be run before any other level.
+    Levels: 1=Galleries/Cafes/Designers, 2=Gift/Esoteric, 3=Restaurants, 4=Corporate, 5=Hotels.
+    """
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        uv = Path.home() / ".local" / "bin" / "uv"
+        cmd = [
+            str(uv), "run", "python", "-m", "src.supervisor.run_research",
+            "--city", city, "--level", str(level), "--country", country.upper(),
+        ]
+        proc = subprocess.Popen(
+            cmd, cwd=str(project_root),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        level_label = LEVEL_LABELS.get(level, f"Level {level}")
+        return json.dumps({
+            "triggered": True,
+            "city": city,
+            "country": country.upper(),
+            "level": level,
+            "level_label": level_label,
+            "pid": proc.pid,
+            "message": f"Research started for {city} level {level} ({level_label}). Check agent_runs for progress.",
+        })
+    except Exception as e:
+        logger.error("run_research failed: %s", e)
+        return json.dumps({"error": str(e)})
+
+
+# =============================================================================
 # TRIGGER RUN
 # =============================================================================
 
