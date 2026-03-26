@@ -14,6 +14,7 @@ from src.config import (
     PROTON_SMTP_HOST, PROTON_SMTP_PORT,
     PROTON_IMAP_HOST, PROTON_IMAP_PORT,
     PROTON_EMAIL, PROTON_PASSWORD,
+    EMAIL_ENABLED,
 )
 from src.tools.db import save_inbox_message
 
@@ -25,6 +26,10 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
     Send a plain-text email via Proton Bridge SMTP.
     Returns True on success, False on failure.
     """
+    if not EMAIL_ENABLED:
+        logger.warning("send_email: EMAIL_ENABLED=false — not sending to %s (%s)", to_email, subject)
+        return False
+
     if not to_email or not body:
         logger.warning("send_email: missing to_email or body — skipped")
         return False

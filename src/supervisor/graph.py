@@ -85,10 +85,10 @@ def _build_agents():
         llm=scout_llm,
         fetch_candidates=get_candidates,
         update_contact=update_contact,
+        fetch_page=fetch_page,
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
-        threshold=SCOUT_THRESHOLD,
     )
 
     outreach = create_outreach_agent(

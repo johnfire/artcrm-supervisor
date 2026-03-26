@@ -31,6 +31,10 @@ PORT: int = int(os.getenv("PORT", "8000"))
 # Contacts scoring below this are dropped. Start high, lower when you need more volume.
 SCOUT_THRESHOLD: int = int(os.getenv("SCOUT_THRESHOLD", "75"))
 
+# --- Email ---
+# Set EMAIL_ENABLED=false to disable all outgoing email (approvals will be marked approved_unsent)
+EMAIL_ENABLED: bool = os.getenv("EMAIL_ENABLED", "true").lower() == "true"
+
 # --- LLM backend for cheap/high-volume tasks (research, enrichment, scouting) ---
 # Options: deepseek-chat, claude-haiku
 CHEAP_LLM: str = os.getenv("CHEAP_LLM", "deepseek-chat")

@@ -43,7 +43,7 @@
       {% for scan in c.levels %}
       <td class="center">
         {% if scan %}
-          <span title="Last run: {{ scan.last_run_at.strftime('%Y-%m-%d') if scan.last_run_at else '—' }} | Found: {{ scan.contacts_found }}"
+          <span title="Last run: {{ scan.last_run_at[:10] if scan.last_run_at else '—' }} | Found: {{ scan.contacts_found }}"
                 style="color:var(--success); cursor:default">●</span>
         {% else %}
           <span class="muted" title="Not yet run">○</span>
