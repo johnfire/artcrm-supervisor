@@ -112,6 +112,7 @@ def _build_agents():
         mark_message_processed=mark_message_processed,
         fetch_overdue=get_overdue_contacts,
         send_email=send_email,
+        queue_for_approval=queue_for_approval,
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
@@ -204,14 +205,8 @@ def create_supervisor(checkpointer=None):
             return {"outreach_summary": msg, "errors": state["errors"] + [msg]}
 
     def run_followup(state: SupervisorState) -> dict:
-        try:
-            result = followup_agent.invoke({})
-            logger.info("followup: %s", result.get("summary", ""))
-            return {"followup_summary": result.get("summary", "")}
-        except Exception as e:
-            msg = f"followup failed: {e}"
-            logger.error(msg)
-            return {"followup_summary": msg, "errors": state["errors"] + [msg]}
+        # Disabled — follow-up handled manually for now
+        return {"followup_summary": "followup: disabled"}
 
     def generate_report(state: SupervisorState) -> dict:
         cities = sorted({j["city"] for j in state.get("research_jobs", [])})
