@@ -204,16 +204,18 @@ def check_compliance(contact_id: int) -> bool:
         row = cur.fetchone()
         if row and (row["opt_out"] or row["erasure_requested"]):
             return False
-        # Check contact not erased
-        cur.execute("SELECT name FROM contacts WHERE id = %s", (contact_id,))
+        # Check contact not erased and not do_not_contact
+        cur.execute("SELECT name, status FROM contacts WHERE id = %s", (contact_id,))
         contact = cur.fetchone()
         if not contact or contact["name"] == "[removed]":
+            return False
+        if contact["status"] == "do_not_contact":
             return False
         return True
 
 
 def set_opt_out(contact_id: int) -> None:
-    """Record opt-out in consent_log and update contact status to 'dormant'."""
+    """Record opt-out in consent_log and update contact status to 'do_not_contact'."""
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -224,7 +226,7 @@ def set_opt_out(contact_id: int) -> None:
             (contact_id,),
         )
         cur.execute(
-            "UPDATE contacts SET status = 'dormant', updated_at = NOW() WHERE id = %s",
+            "UPDATE contacts SET status = 'do_not_contact', updated_at = NOW() WHERE id = %s",
             (contact_id,),
         )
         logger.info("set_opt_out: contact_id=%d opted out", contact_id)
@@ -376,7 +378,7 @@ def get_cities(country: str = "") -> list[dict]:
                 (country,),
             )
         else:
-            cur.execute("SELECT * FROM cities ORDER BY country, region, city")
+            cur.execute("SELECT * FROM cities ORDER BY city, country")
         return [dict(r) for r in cur.fetchall()]
 
 
@@ -470,7 +472,7 @@ def get_all_city_scan_status() -> list[dict]:
             FROM cities ci
             LEFT JOIN city_scans cs ON cs.city_id = ci.id
             GROUP BY ci.id, ci.city, ci.country, ci.region
-            ORDER BY ci.country, ci.region, ci.city
+            ORDER BY ci.city, ci.country
             """,
         )
         return [dict(r) for r in cur.fetchall()]
