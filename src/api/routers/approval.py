@@ -44,7 +44,7 @@ def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, bo
                 "UPDATE contacts SET status = 'contacted', updated_at = NOW() WHERE id = %s AND status = 'cold'",
                 (contact_id,),
             )
-        return True, "sent" if success else "approved_unsent"
+        return success, "sent" if success else "approved_unsent"
     except Exception as e:
         logger.error("_send_and_log: item_id=%d error=%s", item_id, e)
         return False, str(e)
