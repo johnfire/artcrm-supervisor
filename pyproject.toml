@@ -16,6 +16,7 @@ dependencies = [
     "artcrm-scout-agent",
     "artcrm-outreach-agent",
     "artcrm-followup-agent",
+    "artcrm-interview-agent",
 ]
 
 [project.optional-dependencies]
@@ -55,3 +56,4 @@ artcrm-enrichment-agent = { path = "../artcrm-enrichment-agent", editable = true
 artcrm-scout-agent = { path = "../artcrm-scout-agent", editable = true }
 artcrm-outreach-agent = { path = "../artcrm-outreach-agent", editable = true }
 artcrm-followup-agent = { path = "../artcrm-followup-agent", editable = true }
+artcrm-interview-agent = { path = "../artcrm-interview-agent", editable = true }
