@@ -57,7 +57,7 @@
     {% for c in contacts %}
     <tr>
       <td class="muted small">{{ c.id }}</td>
-      <td><strong>{{ c.name }}</strong></td>
+      <td><strong><a href="/contacts/{{ c.id }}">{{ c.name }}</a></strong></td>
       <td>{{ c.city }}{% if c.country %} <span class="muted">{{ c.country }}</span>{% endif %}</td>
       <td class="muted">{{ c.type or '—' }}</td>
       <td><span class="badge badge-{{ c.status }}">{{ c.status }}</span></td>

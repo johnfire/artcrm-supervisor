@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Request, Query, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from urllib.parse import quote_plus
+from typing import Optional
 from src.db.connection import db
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
@@ -168,6 +169,93 @@ def contact_print(
         "total": len(contacts),
         "now": date.today().isoformat(),
     })
+
+
+@router.get("/{contact_id}", response_class=HTMLResponse)
+def contact_detail(contact_id: int, request: Request, saved: bool = Query(default=False)):
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
+        contact = dict(cur.fetchone())
+        cur.execute(
+            "SELECT interaction_date, interaction_type, notes FROM interactions WHERE contact_id = %s ORDER BY interaction_date DESC LIMIT 20",
+            (contact_id,),
+        )
+        interactions = [dict(r) for r in cur.fetchall()]
+    return templates.TemplateResponse("contact_detail.html", {
+        "request": request,
+        "contact": contact,
+        "interactions": interactions,
+        "valid_statuses": VALID_STATUSES,
+        "saved": saved,
+    })
+
+
+@router.post("/{contact_id}/edit")
+def contact_edit(
+    contact_id: int,
+    request: Request,
+    name: str = Form(""),
+    city: str = Form(""),
+    country: str = Form(""),
+    type: str = Form(""),
+    status: str = Form(""),
+    fit_score: Optional[str] = Form(None),
+    email: str = Form(""),
+    phone: str = Form(""),
+    website: str = Form(""),
+    preferred_contact_method: str = Form(""),
+    decision_maker: str = Form(""),
+    last_visited_at: Optional[str] = Form(None),
+    best_visit_time: str = Form(""),
+    visit_duration: str = Form(""),
+    first_impression: str = Form(""),
+    last_impression: str = Form(""),
+    materials_left: str = Form(""),
+    followup_promised: str = Form(""),
+    access_notes: str = Form(""),
+    space_notes: str = Form(""),
+    price_sensitivity: str = Form(""),
+    notes: str = Form(""),
+):
+    def empty_none(v):
+        return v if v and v.strip() else None
+
+    score = None
+    if fit_score and fit_score.strip():
+        try:
+            score = int(fit_score)
+        except ValueError:
+            pass
+
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE contacts SET
+                name = %s, city = %s, country = %s, type = %s, status = %s,
+                fit_score = %s, email = %s, phone = %s, website = %s,
+                preferred_contact_method = %s, decision_maker = %s,
+                last_visited_at = %s, best_visit_time = %s, visit_duration = %s,
+                first_impression = %s, last_impression = %s,
+                materials_left = %s, followup_promised = %s,
+                access_notes = %s, space_notes = %s, price_sensitivity = %s,
+                notes = %s, updated_at = NOW()
+            WHERE id = %s
+            """,
+            (
+                empty_none(name), empty_none(city), empty_none(country), empty_none(type),
+                empty_none(status), score,
+                empty_none(email), empty_none(phone), empty_none(website),
+                empty_none(preferred_contact_method), empty_none(decision_maker),
+                empty_none(last_visited_at), empty_none(best_visit_time), empty_none(visit_duration),
+                empty_none(first_impression), empty_none(last_impression),
+                empty_none(materials_left), empty_none(followup_promised),
+                empty_none(access_notes), empty_none(space_notes), empty_none(price_sensitivity),
+                empty_none(notes), contact_id,
+            ),
+        )
+    return RedirectResponse(url=f"/contacts/{contact_id}?saved=1", status_code=303)
 
 
 @router.post("/{contact_id}/delete")
