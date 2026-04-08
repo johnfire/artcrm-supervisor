@@ -2,11 +2,11 @@
 Web and geographic search tools.
 geo_search uses the Overpass API (OpenStreetMap) — no API key required.
 google_maps_search uses Google Places API (New) — requires GOOGLE_MAPS_API_KEY.
-web_search uses DuckDuckGo — no API key required.
+web_search uses Google Custom Search API — requires GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_CX.
+  Daily limit: 100 queries (free tier). Counter resets at midnight.
 """
 import logging
 import httpx
-from duckduckgo_search import DDGS
 
 logger = logging.getLogger(__name__)
 
@@ -167,16 +167,30 @@ def fetch_page(url: str, max_chars: int = 3000) -> str:
         return ""
 
 
+BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
+
+
 def web_search(query: str, max_results: int = 8) -> list[dict]:
     """
-    Search the web using DuckDuckGo. No API key required.
+    Search the web using Brave Search API.
     Returns list of dicts with: title, url, snippet.
     """
+    from src.config import BRAVE_SEARCH_API_KEY
+    if not BRAVE_SEARCH_API_KEY:
+        logger.warning("web_search: BRAVE_SEARCH_API_KEY not set")
+        return []
     try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=max_results))
+        headers = {
+            "Accept": "application/json",
+            "X-Subscription-Token": BRAVE_SEARCH_API_KEY,
+        }
+        params = {"q": query, "count": min(max_results, 20)}
+        resp = httpx.get(BRAVE_SEARCH_URL, headers=headers, params=params, timeout=10)
+        resp.raise_for_status()
+        items = resp.json().get("web", {}).get("results", [])
+        results = [{"title": r.get("title", ""), "url": r.get("url", ""), "snippet": r.get("description", "")} for r in items]
         logger.info("web_search: %d results for '%s'", len(results), query)
-        return [{"title": r.get("title", ""), "url": r.get("href", ""), "snippet": r.get("body", "")} for r in results]
+        return results
     except Exception as e:
         logger.warning("web_search failed for '%s': %s", query, e)
         return []

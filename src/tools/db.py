@@ -33,6 +33,7 @@ def save_contact(
     email: str = "",
     phone: str = "",
     notes: str = "",
+    scan_level: int | None = None,
 ) -> int:
     """
     Insert a new contact with status='candidate'.
@@ -53,11 +54,11 @@ def save_contact(
 
         cur.execute(
             """
-            INSERT INTO contacts (name, city, country, type, website, email, phone, notes, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'candidate')
+            INSERT INTO contacts (name, city, country, type, website, email, phone, notes, status, scan_level)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'candidate', %s)
             RETURNING id
             """,
-            (name, city, country, type or None, website or None, email or None, phone or None, notes or None),
+            (name, city, country, type or None, website or None, email or None, phone or None, notes or None, scan_level),
         )
         contact_id = cur.fetchone()["id"]
         ensure_consent_log(contact_id, conn=conn)
@@ -65,25 +66,37 @@ def save_contact(
         return contact_id
 
 
-def get_candidates(limit: int = 50) -> list[dict]:
+def get_candidates(limit: int = 50, city: str | None = None) -> list[dict]:
     """Return contacts with status='candidate'."""
     with db() as conn:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT * FROM contacts WHERE status = 'candidate' ORDER BY created_at ASC LIMIT %s",
-            (limit,),
-        )
+        if city:
+            cur.execute(
+                "SELECT * FROM contacts WHERE status = 'candidate' AND city = %s ORDER BY created_at ASC LIMIT %s",
+                (city, limit),
+            )
+        else:
+            cur.execute(
+                "SELECT * FROM contacts WHERE status = 'candidate' ORDER BY created_at ASC LIMIT %s",
+                (limit,),
+            )
         return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
-def get_cold_contacts(limit: int = 20) -> list[dict]:
+def get_cold_contacts(limit: int = 20, city: str | None = None) -> list[dict]:
     """Return contacts with status='cold' ready for first outreach."""
     with db() as conn:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT * FROM contacts WHERE status = 'cold' ORDER BY created_at ASC LIMIT %s",
-            (limit,),
-        )
+        if city:
+            cur.execute(
+                "SELECT * FROM contacts WHERE status = 'cold' AND lower(city) = lower(%s) ORDER BY created_at ASC LIMIT %s",
+                (city, limit),
+            )
+        else:
+            cur.execute(
+                "SELECT * FROM contacts WHERE status = 'cold' ORDER BY created_at ASC LIMIT %s",
+                (limit,),
+            )
         return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
@@ -109,35 +122,51 @@ def update_contact(contact_id: int, status: str, fit_score: int, notes: str = ""
             )
 
 
-def get_contacts_needing_enrichment(limit: int = 50) -> list[dict]:
-    """Return contacts missing both website and email, any status."""
+def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) -> list[dict]:
+    """Return contacts missing email, prioritising never-enriched over previously attempted."""
     with db() as conn:
         cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT * FROM contacts
-            WHERE (website IS NULL OR website = '')
-              AND (email IS NULL OR email = '')
-            ORDER BY created_at ASC
-            LIMIT %s
-            """,
-            (limit,),
-        )
+        if city:
+            cur.execute(
+                """
+                SELECT * FROM contacts
+                WHERE (email IS NULL OR email = '')
+                  AND lower(city) = lower(%s)
+                  AND deleted_at IS NULL
+                ORDER BY enriched_at ASC NULLS FIRST, created_at ASC
+                LIMIT %s
+                """,
+                (city, limit),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT * FROM contacts
+                WHERE (email IS NULL OR email = '')
+                  AND deleted_at IS NULL
+                ORDER BY enriched_at ASC NULLS FIRST, created_at ASC
+                LIMIT %s
+                """,
+                (limit,),
+            )
         return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 def update_contact_details(contact_id: int, **kwargs) -> None:
-    """Update arbitrary contact fields (website, email, phone). Ignores unknown keys."""
+    """Update arbitrary contact fields (website, email, phone). Ignores unknown keys.
+    Always stamps enriched_at to mark this contact as processed by the enrichment agent."""
     allowed = {"website", "email", "phone"}
     fields = {k: v for k, v in kwargs.items() if k in allowed and v}
-    if not fields:
-        return
     set_clause = ", ".join(f"{k} = %s" for k in fields)
+    if set_clause:
+        set_clause += ", enriched_at = NOW(), updated_at = NOW()"
+    else:
+        set_clause = "enriched_at = NOW(), updated_at = NOW()"
     values = list(fields.values()) + [contact_id]
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            f"UPDATE contacts SET {set_clause}, updated_at = NOW() WHERE id = %s",
+            f"UPDATE contacts SET {set_clause} WHERE id = %s",
             values,
         )
 
@@ -468,10 +497,30 @@ def get_all_city_scan_status() -> list[dict]:
                         ) ORDER BY cs.level
                     ) FILTER (WHERE cs.level IS NOT NULL),
                     '[]'
-                ) AS scans
+                ) AS scans,
+                COALESCE(
+                    json_object_agg(
+                        emailed.scan_level::text,
+                        emailed.cnt
+                    ) FILTER (WHERE emailed.scan_level IS NOT NULL),
+                    '{}'
+                ) AS emailed_by_level,
+                COALESCE(live.cnt, 0) AS total_contacts
             FROM cities ci
             LEFT JOIN city_scans cs ON cs.city_id = ci.id
-            GROUP BY ci.id, ci.city, ci.country, ci.region
+            LEFT JOIN (
+                SELECT lower(city) AS city_lower, scan_level, COUNT(*) AS cnt
+                FROM contacts
+                WHERE status IN ('contacted', 'meeting', 'proposal', 'accepted')
+                  AND scan_level IS NOT NULL
+                GROUP BY lower(city), scan_level
+            ) emailed ON lower(ci.city) = emailed.city_lower
+            LEFT JOIN (
+                SELECT lower(city) AS city_lower, COUNT(*) AS cnt
+                FROM contacts
+                GROUP BY lower(city)
+            ) live ON lower(ci.city) = live.city_lower
+            GROUP BY ci.id, ci.city, ci.country, ci.region, live.cnt
             ORDER BY ci.city, ci.country
             """,
         )

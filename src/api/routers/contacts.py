@@ -2,14 +2,17 @@ from fastapi import APIRouter, Request, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
+from urllib.parse import quote_plus
 from src.db.connection import db
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
+templates.env.filters["urlenc"] = quote_plus
 
 VALID_STATUSES = (
     "candidate", "cold", "contacted", "meeting", "proposal",
     "accepted", "rejected", "dormant", "on_hold", "dropped", "do_not_contact",
+    "networking_visit",
 )
 
 
@@ -30,6 +33,7 @@ SORT_COLUMNS = {
 def contact_list(
     request: Request,
     status: str = Query(default=""),
+    type: str = Query(default=""),
     q: str = Query(default=""),
     page: int = Query(default=1, ge=1),
     sort: str = Query(default="id"),
@@ -44,9 +48,12 @@ def contact_list(
 
         conditions = []
         params = []
-        if status and status in VALID_STATUSES:
+        if status:
             conditions.append("c.status = %s")
             params.append(status)
+        if type:
+            conditions.append("lower(c.type) = lower(%s)")
+            params.append(type)
         if q:
             conditions.append("(lower(c.name) LIKE %s OR lower(c.city) LIKE %s)")
             params += [f"%{q.lower()}%", f"%{q.lower()}%"]
@@ -79,19 +86,87 @@ def contact_list(
         cur.execute("SELECT DISTINCT status FROM contacts WHERE status IS NOT NULL ORDER BY status")
         statuses = [r["status"] for r in cur.fetchall()]
 
+        cur.execute("SELECT DISTINCT type FROM contacts WHERE type IS NOT NULL AND type != '' ORDER BY type")
+        types = [r["type"] for r in cur.fetchall()]
+
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
 
     return templates.TemplateResponse("contacts.html", {
         "request": request,
         "contacts": contacts,
         "statuses": statuses,
+        "types": types,
         "active_status": status,
+        "active_type": type,
         "query": q,
         "page": page,
         "total_pages": total_pages,
         "total": total,
         "sort": sort,
         "dir": dir,
+    })
+
+
+@router.get("/print", response_class=HTMLResponse)
+def contact_print(
+    request: Request,
+    status: str = Query(default=""),
+    type: str = Query(default=""),
+    q: str = Query(default=""),
+    sort: str = Query(default="id"),
+    dir: str = Query(default="asc"),
+):
+    sort_col = SORT_COLUMNS.get(sort, "c.id")
+    sort_dir = "DESC" if dir == "desc" else "ASC"
+
+    with db() as conn:
+        cur = conn.cursor()
+
+        conditions = []
+        params = []
+        if status:
+            conditions.append("c.status = %s")
+            params.append(status)
+        if type:
+            conditions.append("lower(c.type) = lower(%s)")
+            params.append(type)
+        if q:
+            conditions.append("(lower(c.name) LIKE %s OR lower(c.city) LIKE %s)")
+            params += [f"%{q.lower()}%", f"%{q.lower()}%"]
+
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+        cur.execute(
+            f"""
+            SELECT
+                c.id, c.name, c.city, c.country, c.type, c.status,
+                c.email, c.website, c.fit_score, c.notes,
+                MAX(i.interaction_date) AS last_contact
+            FROM contacts c
+            LEFT JOIN interactions i ON i.contact_id = c.id
+            {where}
+            GROUP BY c.id
+            ORDER BY {sort_col} {sort_dir} NULLS LAST
+            """,
+            params,
+        )
+        contacts = [dict(r) for r in cur.fetchall()]
+
+    from datetime import date
+    active_filters = []
+    if status:
+        active_filters.append(f"status: {status}")
+    if type:
+        active_filters.append(f"type: {type}")
+    if q:
+        active_filters.append(f"search: {q}")
+
+    return templates.TemplateResponse("contacts_print.html", {
+        "request": request,
+        "contacts": contacts,
+        "active_filters": active_filters,
+        "total": len(contacts),
+        "now": date.today().isoformat(),
     })
 
 

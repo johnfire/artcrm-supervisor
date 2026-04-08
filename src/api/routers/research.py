@@ -24,19 +24,31 @@ def research_page(request: Request):
     for c in cities:
         scans_by_level = {s["level"]: s for s in (c["scans"] or [])}
         c["levels"] = [scans_by_level.get(lvl) for lvl in range(1, 6)]
-        c["total_contacts"] = sum(s["contacts_found"] for s in (c["scans"] or []))
+        c["total_contacts"] = c.get("total_contacts") or 0
         c["scanned_levels"] = len(c["scans"] or [])
+        emailed = c.get("emailed_by_level") or {}
+        c["emailed"] = [emailed.get(str(lvl), 0) for lvl in range(1, 6)]
 
     total = len(cities)
-    level1_done = sum(1 for c in cities if any((s or {}).get("level") == 1 for s in c["levels"] if s))
     unscanned = sum(1 for c in cities if not c["scans"])
+    level_done = {
+        lvl: sum(1 for c in cities if c["levels"][lvl - 1] is not None)
+        for lvl in range(1, 6)
+    }
+
+    totals = {
+        "contacts": sum(c["total_contacts"] for c in cities),
+        "scans": [sum(1 for c in cities if c["levels"][lvl - 1] is not None) for lvl in range(1, 6)],
+        "emailed": [sum(c["emailed"][lvl - 1] for c in cities) for lvl in range(1, 6)],
+    }
 
     return templates.TemplateResponse("research.html", {
         "request": request,
         "cities": cities,
         "level_labels": LEVEL_LABELS,
         "total": total,
-        "level1_done": level1_done,
+        "level_done": level_done,
         "unscanned": unscanned,
         "levels": range(1, 6),
+        "totals": totals,
     })

@@ -50,8 +50,6 @@ nav a.active {
 }
 
 main {
-  max-width: 960px;
-  margin: 0 auto;
   padding: 1.5rem;
 }
 
@@ -205,10 +203,13 @@ button {
   color: var(--text);
 }
 .notes-cell {
-  max-width: 260px;
+  min-width: 4500px;
+}
+.notes-cell-inner {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .flag-dot {
   color: #e05555;
@@ -242,7 +243,6 @@ button {
 
 /* Table (activity feed) */
 table {
-  width: 100%;
   border-collapse: collapse;
 }
 th {
@@ -330,6 +330,10 @@ code {
 .badge-dropped {
   border: 1px solid #444;
   color: #555;
+}
+.badge-networking_visit {
+  border: 1px solid #44aaff;
+  color: #44aaff;
 }
 
 /* Filter bar (contacts page) */
