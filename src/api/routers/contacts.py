@@ -13,7 +13,7 @@ templates.env.filters["urlenc"] = quote_plus
 VALID_STATUSES = (
     "candidate", "cold", "contacted", "meeting", "proposal",
     "accepted", "rejected", "dormant", "on_hold", "dropped", "do_not_contact",
-    "networking_visit",
+    "networking_visit", "bad_email",
 )
 
 
@@ -36,6 +36,7 @@ def contact_list(
     status: str = Query(default=""),
     type: str = Query(default=""),
     q: str = Query(default=""),
+    has_contact: str = Query(default=""),
     page: int = Query(default=1, ge=1),
     sort: str = Query(default="id"),
     dir: str = Query(default="asc"),
@@ -58,6 +59,10 @@ def contact_list(
         if q:
             conditions.append("(lower(c.name) LIKE %s OR lower(c.city) LIKE %s)")
             params += [f"%{q.lower()}%", f"%{q.lower()}%"]
+        if has_contact == "1":
+            conditions.append("c.id IN (SELECT DISTINCT contact_id FROM interactions)")
+        elif has_contact == "0":
+            conditions.append("c.id NOT IN (SELECT DISTINCT contact_id FROM interactions)")
 
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
@@ -100,6 +105,7 @@ def contact_list(
         "active_status": status,
         "active_type": type,
         "query": q,
+        "has_contact": has_contact,
         "page": page,
         "total_pages": total_pages,
         "total": total,
@@ -171,6 +177,24 @@ def contact_print(
     })
 
 
+@router.get("/{contact_id}/brief", response_class=HTMLResponse)
+def contact_brief(contact_id: int, request: Request):
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
+        contact = dict(cur.fetchone())
+        cur.execute(
+            "SELECT interaction_date, method, direction, summary, outcome, next_action, next_action_date FROM interactions WHERE contact_id = %s ORDER BY interaction_date DESC LIMIT 5",
+            (contact_id,),
+        )
+        interactions = [dict(r) for r in cur.fetchall()]
+    return templates.TemplateResponse("contact_brief.html", {
+        "request": request,
+        "contact": contact,
+        "interactions": interactions,
+    })
+
+
 @router.get("/{contact_id}", response_class=HTMLResponse)
 def contact_detail(contact_id: int, request: Request, saved: bool = Query(default=False)):
     with db() as conn:
@@ -178,7 +202,7 @@ def contact_detail(contact_id: int, request: Request, saved: bool = Query(defaul
         cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
         contact = dict(cur.fetchone())
         cur.execute(
-            "SELECT interaction_date, interaction_type, notes FROM interactions WHERE contact_id = %s ORDER BY interaction_date DESC LIMIT 20",
+            "SELECT interaction_date, method, direction, summary, outcome, next_action, next_action_date FROM interactions WHERE contact_id = %s ORDER BY interaction_date DESC LIMIT 20",
             (contact_id,),
         )
         interactions = [dict(r) for r in cur.fetchall()]

@@ -26,17 +26,18 @@
 
 ## Dead Ends
 
-| Status           | Description                                                                                           |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| `dropped`        | Decided not to pursue — wrong fit, no response after multiple attempts, or venue closed.              |
-| `do_not_contact` | Opted out or explicitly asked not to be contacted. Blocked from all outreach by the compliance check. |
-| `closed`         | Relationship ended after a completed engagement.                                                      |
+| Status           | Description                                                                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dropped`        | Decided not to pursue after at least one contact attempt — wrong fit, no response after multiple tries, or venue closed. Never set before first contact; use `cold` if no outreach has been made. |
+| `do_not_contact` | Opted out or explicitly asked not to be contacted. Blocked from all outreach by the compliance check.                                                                                             |
+| `closed`         | Relationship ended after a completed engagement.                                                                                                                                                  |
 
 ## Data Quality
 
 | Status            | Description                                                                                                                                                                           |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lead_unverified` | Imported or auto-discovered but not yet validated — website, name, or contact details may be incomplete or wrong. Needs enrichment or manual check before entering the main pipeline. |
+| `bad_email`       | Outreach email bounced or was undeliverable. Email address needs to be verified or corrected before re-outreach.                                                                      |
 
 ---
 

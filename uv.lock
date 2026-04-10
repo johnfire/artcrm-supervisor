@@ -87,6 +87,21 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [[package]]
+name = "artcrm-interview-agent"
+version = "0.1.0"
+source = { editable = "../artcrm-interview-agent" }
+dependencies = [
+    { name = "psycopg2-binary" },
+    { name = "python-dotenv" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "psycopg2-binary", specifier = ">=2.9.9" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
+]
+
+[[package]]
 name = "artcrm-outreach-agent"
 version = "0.1.0"
 source = { editable = "../artcrm-outreach-agent" }
@@ -144,6 +159,7 @@ source = { editable = "." }
 dependencies = [
     { name = "artcrm-enrichment-agent" },
     { name = "artcrm-followup-agent" },
+    { name = "artcrm-interview-agent" },
     { name = "artcrm-outreach-agent" },
     { name = "artcrm-research-agent" },
     { name = "artcrm-scout-agent" },
@@ -179,6 +195,7 @@ requires-dist = [
     { name = "anthropic", marker = "extra == 'agents'", specifier = ">=0.40.0" },
     { name = "artcrm-enrichment-agent", editable = "../artcrm-enrichment-agent" },
     { name = "artcrm-followup-agent", editable = "../artcrm-followup-agent" },
+    { name = "artcrm-interview-agent", editable = "../artcrm-interview-agent" },
     { name = "artcrm-outreach-agent", editable = "../artcrm-outreach-agent" },
     { name = "artcrm-research-agent", editable = "../artcrm-research-agent" },
     { name = "artcrm-scout-agent", editable = "../artcrm-scout-agent" },

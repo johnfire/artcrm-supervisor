@@ -137,6 +137,7 @@
 
   <div class="detail-actions">
     <button type="submit" class="btn-primary">Save</button>
+    <a href="/contacts/{{ contact.id }}/brief" class="btn-secondary">Pre-visit brief</a>
     <a href="/contacts/" class="btn-secondary">Back to list</a>
   </div>
 </form>
@@ -146,14 +147,17 @@
   <h2>Interaction History</h2>
   <table>
     <thead>
-      <tr><th>Date</th><th>Type</th><th>Notes</th></tr>
+      <tr><th>Date</th><th>Method</th><th>Direction</th><th>Summary</th><th>Outcome</th><th>Next action</th></tr>
     </thead>
     <tbody>
       {% for i in interactions %}
       <tr>
         <td class="muted small">{{ i.interaction_date.strftime('%Y-%m-%d') if i.interaction_date else '—' }}</td>
-        <td>{{ i.interaction_type or '—' }}</td>
-        <td class="muted small">{{ i.notes or '—' }}</td>
+        <td>{{ i.method or '—' }}</td>
+        <td class="muted">{{ i.direction or '—' }}</td>
+        <td class="muted small">{{ i.summary or '—' }}</td>
+        <td class="muted small">{{ i.outcome or '—' }}</td>
+        <td class="muted small">{{ i.next_action or '—' }}{% if i.next_action_date %} <span class="muted">({{ i.next_action_date.strftime('%Y-%m-%d') }})</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
