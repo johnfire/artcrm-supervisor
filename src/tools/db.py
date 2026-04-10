@@ -393,6 +393,39 @@ def mark_message_processed(inbox_message_id: int, contact_id: int | None) -> Non
         )
 
 
+def save_inbox_classification(
+    inbox_message_id: int,
+    contact_id: int | None,
+    classification: str,
+    reasoning: str,
+) -> None:
+    """Persist the LLM classification result and mark message as processed."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE inbox_messages
+            SET processed = TRUE,
+                matched_contact_id = %s,
+                classification = %s,
+                classification_reasoning = %s
+            WHERE id = %s
+            """,
+            (contact_id, classification, reasoning, inbox_message_id),
+        )
+
+
+def set_visit_when_nearby(contact_id: int) -> None:
+    """Flag a contact for a personal visit next time you're in the area."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE contacts SET visit_when_nearby = TRUE, updated_at = NOW() WHERE id = %s",
+            (contact_id,),
+        )
+        logger.info("set_visit_when_nearby: contact_id=%d flagged", contact_id)
+
+
 # ---------------------------------------------------------------------------
 # Cities + scan levels
 # ---------------------------------------------------------------------------

@@ -26,6 +26,9 @@
     <a href="/research/" {% if request.url.path.startswith('/research') %}class="active"{% endif %}>
       Research
     </a>
+    <a href="/inbox/" {% if request.url.path.startswith('/inbox') %}class="active"{% endif %}>
+      Inbox
+    </a>
   </nav>
   <main>
     {% block content %}{% endblock %}
