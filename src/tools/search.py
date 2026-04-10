@@ -97,6 +97,7 @@ def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
 def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]:
     """
     Search for venues using Google Places API (New).
+    Paginates up to 3 pages (max 60 results) using nextPageToken.
     Returns list of dicts with: name, address, city, country, website, phone.
     Falls back to empty list if API key is missing or request fails.
     """
@@ -105,39 +106,52 @@ def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]
         logger.warning("google_maps_search: GOOGLE_MAPS_API_KEY not set")
         return []
 
-    payload = {
-        "textQuery": f"{query} {city}",
-        "languageCode": "de",
-        "regionCode": country,
-        "maxResultCount": 20,
-    }
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
-        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber",
+        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,nextPageToken",
     }
-    try:
-        resp = httpx.post(GOOGLE_PLACES_URL, json=payload, headers=headers, timeout=15)
-        resp.raise_for_status()
-        places = resp.json().get("places", [])
-    except Exception as e:
-        logger.warning("google_maps_search failed for '%s' in %s: %s", query, city, e)
-        return []
 
     results = []
-    for p in places:
-        name = p.get("displayName", {}).get("text", "")
-        if not name:
-            continue
-        results.append({
-            "name": name,
-            "address": p.get("formattedAddress", ""),
-            "city": city,
-            "country": country,
-            "website": p.get("websiteUri", ""),
-            "phone": p.get("nationalPhoneNumber", "") or p.get("internationalPhoneNumber", ""),
-            "email": "",
-        })
+    page_token = None
+    max_pages = 3
+
+    for page in range(max_pages):
+        payload = {
+            "textQuery": f"{query} {city}",
+            "languageCode": "de",
+            "regionCode": country,
+            "maxResultCount": 20,
+        }
+        if page_token:
+            payload["pageToken"] = page_token
+
+        try:
+            resp = httpx.post(GOOGLE_PLACES_URL, json=payload, headers=headers, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            places = data.get("places", [])
+            page_token = data.get("nextPageToken")
+        except Exception as e:
+            logger.warning("google_maps_search failed for '%s' in %s (page %d): %s", query, city, page + 1, e)
+            break
+
+        for p in places:
+            name = p.get("displayName", {}).get("text", "")
+            if not name:
+                continue
+            results.append({
+                "name": name,
+                "address": p.get("formattedAddress", ""),
+                "city": city,
+                "country": country,
+                "website": p.get("websiteUri", ""),
+                "phone": p.get("nationalPhoneNumber", "") or p.get("internationalPhoneNumber", ""),
+                "email": "",
+            })
+
+        if not page_token:
+            break
 
     logger.info("google_maps_search: %d results for '%s' in %s", len(results), query, city)
     return results
