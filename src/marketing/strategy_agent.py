@@ -13,8 +13,6 @@ import re
 from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 
-from langchain_core.messages import HumanMessage
-
 from src.tools.marketing_db import (
     get_all_strategies,
     get_recent_research,
@@ -52,6 +50,8 @@ def _weeks_since_reviewed(last_reviewed_at: str | None) -> int | None:
     if not last_reviewed_at:
         return None
     dt = datetime.fromisoformat(last_reviewed_at.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
     delta = datetime.now(timezone.utc) - dt
     return delta.days // 7
 
@@ -61,6 +61,7 @@ def run(llm) -> str:
     Run the strategy agent. Returns the generated digest content.
     `llm` is a LangChain BaseChatModel (use Claude Sonnet).
     """
+    from langchain_core.messages import HumanMessage
     today = date.today()
     # Monday of this week
     week_date = str(today - timedelta(days=today.weekday()))

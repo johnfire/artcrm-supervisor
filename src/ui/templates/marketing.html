@@ -15,7 +15,7 @@
   {# TODO: render as markdown once `markdown` or `mistune` package is added as a dependency.
      For now, preserve newlines with <br> — readable but loses headers/lists formatting. #}
   <div class="digest-content" style="max-width:72ch; line-height:1.7; white-space:pre-wrap;">
-    {{ digest.content | safe }}
+    {{ digest.content }}
   </div>
 </section>
 {% else %}
