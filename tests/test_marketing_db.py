@@ -98,3 +98,22 @@ class TestUpdateStrategyReviewed:
         assert cur.execute.called
         call_args = cur.execute.call_args[0]
         assert "last_reviewed_at" in call_args[0]
+
+
+class TestGetPipelineStats:
+    def test_returns_expected_keys(self):
+        from src.tools.marketing_db import get_pipeline_stats
+        conn, cur = make_mock_conn()
+        cur.fetchall.return_value = [{"status": "cold", "count": 10}]
+        cur.fetchone.side_effect = [
+            {"count": 3},   # overdue_follow_ups
+            {"count": 1},   # pending_approvals
+        ]
+        with patch("src.tools.marketing_db.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            result = get_pipeline_stats()
+        assert "by_status" in result
+        assert "overdue_follow_ups" in result
+        assert "pending_approvals" in result
+        assert result["overdue_follow_ups"] == 3
+        assert result["pending_approvals"] == 1
