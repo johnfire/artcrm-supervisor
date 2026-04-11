@@ -1,3 +1,6 @@
+-- Migration 010: marketing tables
+-- Tables for tracking marketing strategies, research findings, and weekly digests.
+
 -- Marketing strategies: one row per strategy, tracking layer alongside the markdown doc
 CREATE TABLE IF NOT EXISTS marketing_strategies (
     id               serial PRIMARY KEY,
@@ -38,3 +41,7 @@ VALUES
     ('Art Markets',            'markets',          'markets-strategy.md',   'active', 2),
     ('Email Outreach Pipeline','email-outreach',   'AGENTS.md',             'active', 1)
 ON CONFLICT (slug) DO NOTHING;
+
+-- Index for common query patterns.
+CREATE INDEX IF NOT EXISTS idx_marketing_research_strategy ON marketing_research (strategy_id);
+CREATE INDEX IF NOT EXISTS idx_marketing_research_run_date ON marketing_research (run_date DESC);
