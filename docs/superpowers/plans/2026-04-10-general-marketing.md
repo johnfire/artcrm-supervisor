@@ -350,7 +350,7 @@ def get_recent_research(days: int = 14, strategy_slug: str | None = None) -> lis
                 """
                 SELECT r.* FROM marketing_research r
                 JOIN marketing_strategies s ON r.strategy_id = s.id
-                WHERE r.run_date >= CURRENT_DATE - INTERVAL '%s days'
+                WHERE r.run_date >= CURRENT_DATE - %s * INTERVAL '1 day'
                   AND s.slug = %s
                 ORDER BY r.run_date DESC, r.id DESC
                 """,

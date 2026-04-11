@@ -364,3 +364,31 @@ artcrm-supervisor/
   RUNBOOK.md
   .env.example
 ```
+
+## Marketing Agents
+
+Two agents that run every Monday to keep all marketing strategies coordinated.
+
+### Marketing Research Agent
+
+Runs Monday 6:00am. Performs general art marketing web searches and targeted monitoring
+per strategy doc.
+
+```bash
+uv run python -m src.marketing.run_research
+```
+
+Logs: `~/logs/marketing-research.log`
+
+### Marketing Strategy Agent
+
+Runs Monday 7:00am (after research). Reads strategy docs, pipeline stats, and research
+findings, then generates a weekly digest stored in `marketing_digests`.
+
+```bash
+uv run python -m src.marketing.run_strategy
+```
+
+Logs: `~/logs/marketing-strategy.log`
+
+Digest visible at: `http://127.0.0.1:8000/marketing/`

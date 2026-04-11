@@ -557,6 +557,73 @@ def pipeline_review() -> str:
 
 
 # =============================================================================
+# MARKETING
+# =============================================================================
+
+@server.tool()
+def marketing_digest_latest() -> str:
+    """Get the most recent weekly marketing digest as markdown."""
+    from src.tools.marketing_db import get_latest_digest
+    digest = get_latest_digest()
+    if not digest:
+        return "No digest yet. Run: uv run python -m src.marketing.run_strategy"
+    return f"**Week: {digest['week_date']}**\n\n{digest['content']}"
+
+
+@server.tool()
+def marketing_strategy_list() -> str:
+    """List all marketing strategies with status, priority, and last reviewed date."""
+    import json
+    from src.tools.marketing_db import get_all_strategies
+    strategies = get_all_strategies()
+    return json.dumps(strategies, indent=2)
+
+
+@server.tool()
+def marketing_action_items() -> str:
+    """List all open action items (unchecked checkboxes) across all active strategy docs."""
+    import re
+    from pathlib import Path
+    from src.tools.marketing_db import get_all_strategies
+
+    repo_root = Path(__file__).parent.parent.parent
+    strategies = get_all_strategies(status="active")
+    lines = []
+    for s in strategies:
+        doc_path = repo_root / s["doc_path"]
+        if not doc_path.exists():
+            continue
+        content = doc_path.read_text(encoding="utf-8")
+        items = re.findall(r"- \[ \] (.+)", content)
+        if items:
+            lines.append(f"## {s['name']}")
+            for item in items:
+                lines.append(f"- [ ] {item}")
+            lines.append("")
+
+    if not lines:
+        return "No open action items found across active strategy docs."
+    return "\n".join(lines)
+
+
+@server.tool()
+def marketing_research_recent(days: int = 14, strategy_slug: str = "") -> str:
+    """
+    Return recent marketing research findings.
+    Args:
+        days: How many days back to look (default 14).
+        strategy_slug: Filter by strategy slug (e.g. 'plein-air'). Empty = all findings.
+    """
+    import json
+    from src.tools.marketing_db import get_recent_research
+    slug = strategy_slug if strategy_slug else None
+    findings = get_recent_research(days=days, strategy_slug=slug)
+    if not findings:
+        return f"No research findings in the last {days} days."
+    return json.dumps(findings, indent=2)
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
