@@ -14,6 +14,11 @@ import re
 
 logger = logging.getLogger(__name__)
 
+_METADATA_RE = re.compile(
+    r"^(Captured:|Type:|Project:|Status:|Topics:|People:|Actions:|---)",
+    re.MULTILINE,
+)
+
 
 def _get_config() -> tuple[str, str]:
     from src.config import OPEN_BRAIN_URL, OPEN_BRAIN_TOKEN
@@ -52,7 +57,18 @@ def _run_tool(tool_name: str, arguments: dict) -> str:
                 return "\n".join(texts)
 
     try:
-        return asyncio.run(_inner())
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(lambda: asyncio.run(_inner()))
+                return future.result(timeout=10)
+        else:
+            return asyncio.run(_inner())
     except Exception as e:
         logger.warning("memory: %s failed: %s", tool_name, e)
         return ""
@@ -74,14 +90,10 @@ def search_artcrm_thoughts(query: str, limit: int = 5) -> list[str]:
         return []
 
     results = []
-    _METADATA = re.compile(
-        r"^(Captured:|Type:|Project:|Status:|Topics:|People:|Actions:|---)",
-        re.MULTILINE,
-    )
     for block in re.split(r"--- Result \d+.*---", raw):
         lines = [
             l.strip() for l in block.splitlines()
-            if l.strip() and not _METADATA.match(l.strip())
+            if l.strip() and not _METADATA_RE.match(l.strip())
             and not l.strip().startswith("Found ")
         ]
         content = " ".join(lines).strip()
