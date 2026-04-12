@@ -56,6 +56,17 @@ def main():
     summary = result.get("summary", "")
     contacts_found = len(result.get("saved_ids", []))
     record_scan_result(args.city, args.country, args.level, contacts_found)
+
+    # Capture city scan observation in Open Brain for shared memory
+    if contacts_found > 0:
+        from src.tools.memory import capture_thought
+        observation = (
+            f"artcrm city scan: {args.city} (level {args.level}). "
+            f"Found {contacts_found} new contacts. {summary}"
+        )
+        capture_thought(observation)
+        logger.info("outreach memory: captured city observation for %s", args.city)
+
     logger.info("Done: %s", summary)
 
 
