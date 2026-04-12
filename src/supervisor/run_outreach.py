@@ -42,9 +42,14 @@ def main():
         mission=ACTIVE_MISSION,
     )
 
+    from src.tools.memory import search_artcrm_thoughts
+    learnings = search_artcrm_thoughts("outreach email tone style", limit=5)
+    if learnings:
+        logger.info("outreach: injecting %d learnings from Open Brain", len(learnings))
+
     city_label = args.city or "all cities"
     logger.info("outreach: running for %s (limit=%d)", city_label, args.limit)
-    result = agent.invoke({"limit": args.limit})
+    result = agent.invoke({"limit": args.limit, "learnings": learnings})
     logger.info("Done: %s", result.get("summary", ""))
 
 
