@@ -158,7 +158,8 @@ class TestRecordWarmOutcome:
             from src.tools.db import record_warm_outcome
             record_warm_outcome(contact_id=42)
 
-        mock_cur.execute.assert_called()
+        insert_calls = [str(c) for c in mock_cur.execute.call_args_list]
+        assert any("INSERT INTO outreach_outcomes" in s for s in insert_calls)
 
     def test_skips_silently_when_no_sent_interaction(self):
         with patch("src.tools.db.db") as mock_db:

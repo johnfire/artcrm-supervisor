@@ -308,7 +308,7 @@ def record_warm_outcome(contact_id: int) -> None:
             """
             SELECT draft_body FROM approval_queue
             WHERE contact_id = %s AND status IN ('approved', 'approved_unsent')
-            ORDER BY reviewed_at DESC LIMIT 1
+            ORDER BY COALESCE(reviewed_at, created_at) DESC LIMIT 1
             """,
             (contact_id,),
         )
@@ -320,6 +320,7 @@ def record_warm_outcome(contact_id: int) -> None:
             INSERT INTO outreach_outcomes
                 (contact_id, sent_interaction_id, reply_interaction_id, warm, word_count)
             VALUES (%s, %s, %s, true, %s)
+            ON CONFLICT (sent_interaction_id) DO NOTHING
             """,
             (contact_id, sent_interaction_id, reply_interaction_id, word_count),
         )
@@ -338,8 +339,14 @@ def get_outreach_outcomes(days: int = 90) -> list[dict]:
                 c.name AS contact_name, c.city, c.type AS contact_type
             FROM outreach_outcomes oo
             JOIN contacts c ON c.id = oo.contact_id
-            LEFT JOIN approval_queue aq ON aq.contact_id = oo.contact_id
-                AND aq.status IN ('approved', 'approved_unsent')
+            LEFT JOIN LATERAL (
+                SELECT draft_subject, draft_body
+                FROM approval_queue
+                WHERE contact_id = oo.contact_id
+                  AND status IN ('approved', 'approved_unsent')
+                ORDER BY COALESCE(reviewed_at, created_at) DESC
+                LIMIT 1
+            ) aq ON true
             WHERE oo.created_at >= NOW() - %s * INTERVAL '1 day'
             ORDER BY oo.created_at DESC
             """,
