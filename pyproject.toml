@@ -11,6 +11,7 @@ dependencies = [
     "python-multipart>=0.0.12",
     "httpx>=0.28.0",
     "mcp[cli]>=1.0.0",
+    "mistune>=3.0.0",
     "artcrm-research-agent",
     "artcrm-enrichment-agent",
     "artcrm-scout-agent",
@@ -57,3 +58,9 @@ artcrm-scout-agent = { path = "../artcrm-scout-agent", editable = true }
 artcrm-outreach-agent = { path = "../artcrm-outreach-agent", editable = true }
 artcrm-followup-agent = { path = "../artcrm-followup-agent", editable = true }
 artcrm-interview-agent = { path = "../artcrm-interview-agent", editable = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+]

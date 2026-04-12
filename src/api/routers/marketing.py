@@ -3,16 +3,26 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
+import mistune
+
 from src.tools.marketing_db import get_all_strategies, get_latest_digest, get_digest_archive, get_digest_by_id
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
+_md = mistune.create_markdown(escape=False)
+
+
+def _render_digest(digest: dict | None) -> dict | None:
+    if digest and digest.get("content"):
+        digest = dict(digest)
+        digest["content_html"] = _md(digest["content"])
+    return digest
 
 
 @router.get("/marketing/", response_class=HTMLResponse)
 def marketing_page(request: Request):
     strategies = get_all_strategies()
-    digest = get_latest_digest()
+    digest = _render_digest(get_latest_digest())
     archive = get_digest_archive(limit=12)
     return templates.TemplateResponse("marketing.html", {
         "request": request,
@@ -24,7 +34,7 @@ def marketing_page(request: Request):
 
 @router.get("/marketing/digest/{digest_id}", response_class=HTMLResponse)
 def marketing_digest(request: Request, digest_id: int):
-    digest = get_digest_by_id(digest_id)
+    digest = _render_digest(get_digest_by_id(digest_id))
     if not digest:
         return RedirectResponse(url="/marketing/")
     strategies = get_all_strategies()

@@ -1,11 +1,36 @@
 """Tests for marketing MCP tools in src/mcp/server.py."""
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 
-# marketing_action_items reads strategy docs from disk — tested manually
+class TestMarketingActionItems:
+    def test_returns_no_items_message_when_no_active_strategies(self):
+        with patch("src.tools.marketing_db.get_all_strategies", return_value=[]):
+            from src.mcp.server import marketing_action_items
+            result = marketing_action_items()
+        assert "No open action items" in result
+
+    def test_returns_action_items_from_strategy_doc(self, tmp_path):
+        doc = tmp_path / "strategy.md"
+        doc.write_text("# Strategy\n\n- [ ] Do the thing\n- [x] Done thing\n- [ ] Another item\n")
+        fake = [{"name": "Test Strategy", "doc_path": str(doc)}]
+        with patch("src.tools.marketing_db.get_all_strategies", return_value=fake):
+            from src.mcp.server import marketing_action_items
+            result = marketing_action_items()
+        assert "Test Strategy" in result
+        assert "Do the thing" in result
+        assert "Another item" in result
+        assert "Done thing" not in result
+
+    def test_skips_strategy_docs_that_dont_exist(self, tmp_path):
+        fake = [{"name": "Ghost Strategy", "doc_path": str(tmp_path / "missing.md")}]
+        with patch("src.tools.marketing_db.get_all_strategies", return_value=fake):
+            from src.mcp.server import marketing_action_items
+            result = marketing_action_items()
+        assert "No open action items" in result
 
 
 class TestMarketingDigestLatest:
