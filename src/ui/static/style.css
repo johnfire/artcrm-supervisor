@@ -194,6 +194,15 @@ button {
   background: var(--danger);
   color: var(--bg);
 }
+.btn-warning {
+  background: transparent;
+  border-color: #f0a500;
+  color: #f0a500;
+}
+.btn-warning:hover {
+  background: #f0a500;
+  color: var(--bg);
+}
 .sort-link {
   color: var(--muted);
   text-decoration: none;
@@ -451,4 +460,10 @@ code {
 .stat-label {
   color: var(--muted);
   font-size: 0.85em;
+}
+.draft-subject {
+  font-weight: 500;
+}
+.drafts-table td {
+  vertical-align: top;
 }

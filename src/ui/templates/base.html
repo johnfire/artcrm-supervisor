@@ -32,6 +32,9 @@
     <a href="/marketing/" {% if request.url.path.startswith('/marketing') %}class="active"{% endif %}>
       Marketing
     </a>
+    <a href="/drafts/" {% if request.url.path.startswith('/drafts') %}class="active"{% endif %}>
+      Drafts
+    </a>
   </nav>
   <main>
     {% block content %}{% endblock %}

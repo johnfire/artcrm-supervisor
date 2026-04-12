@@ -212,6 +212,36 @@ def approval_reject(item_id: int, note: str = "") -> str:
         return json.dumps({"error": str(e)})
 
 
+@server.tool()
+def approval_hold(item_id: int, note: str = "") -> str:
+    """Put a queued email draft on hold. Sets the draft to on_hold and the contact to on_hold status."""
+    try:
+        with db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT contact_id FROM approval_queue
+                WHERE id = %s AND status IN ('pending', 'rejected')
+            """, (item_id,))
+            row = cur.fetchone()
+            if not row:
+                return json.dumps({"error": f"Item {item_id} not found or already reviewed"})
+            contact_id = row["contact_id"]
+            cur.execute("""
+                UPDATE approval_queue
+                SET status = 'on_hold', reviewer_note = %s
+                WHERE id = %s
+            """, (note or None, item_id))
+            cur.execute("""
+                UPDATE contacts SET status = 'on_hold', updated_at = NOW()
+                WHERE id = %s AND status NOT IN ('contacted', 'meeting', 'accepted', 'dormant', 'do_not_contact')
+            """, (contact_id,))
+
+        return json.dumps({"on_hold": True, "item_id": item_id, "contact_id": contact_id})
+    except Exception as e:
+        logger.error("approval_hold failed: item_id=%d error=%s", item_id, e)
+        return json.dumps({"error": str(e)})
+
+
 # =============================================================================
 # AGENT RUNS
 # =============================================================================
