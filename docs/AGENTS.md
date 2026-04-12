@@ -1,6 +1,6 @@
 # ArtCRM Agents — How They Work
 
-This document explains all six agents in the artcrm system, how they interact, and how the whole thing relates to `theo-hits-the-road`.
+This document explains all agents in the artcrm system, how they interact, and how you can operate them manually — including directly via Claude Code.
 
 ---
 
@@ -12,7 +12,7 @@ This document explains all six agents in the artcrm system, how they interact, a
 
 ---
 
-## The six agents
+## Pipeline agents
 
 ### 1. Supervisor (artcrm-supervisor)
 
@@ -64,12 +64,12 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 **Steps inside the agent:**
 
 1. **run_maps_search** — runs fixed German-language search terms for the level against the Google Maps Places API. Returns name, address, website, phone directly from Maps data. Deduplicates by name.
-2. **run_web_search** — two targeted DuckDuckGo queries per level to supplement Maps data and catch venues Maps might miss.
+2. **run_web_search** — targeted Brave Search queries per level to supplement Maps data and catch venues Maps might miss.
 3. **fetch_pages** — visits the top 3 URLs found, strips HTML to plain text, feeds the content to the extraction LLM. This is how emails, contact names, and gallery style signals get extracted from actual venue websites.
 4. **extract_contacts** — LLM parses all raw results into structured contact records. Writes 2–3 sentence notes per venue including fit signals. Includes ALL venues found — no filtering at this stage.
 5. **save_contacts** — writes each contact to `contacts` with `status=candidate`. Deduplication key is `(name, city)` so re-runs are safe.
 
-**LLM:** `CHEAP_LLM` env var (deepseek-chat or claude-haiku) — this is volume work.
+**LLM:** `CHEAP_LLM` env var (currently `claude-haiku`; default fallback `deepseek-chat`) — this is volume work.
 
 **Output:** contacts in the database with `status=candidate`
 
@@ -90,11 +90,11 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 1. **fetch** — pulls contacts where `website` is missing OR `email` is missing, ordered by `created_at`. Skips contacts that already have both.
 2. **enrich_all** — for each contact:
    - Builds a search query: `"{name} {city} website email contact"`
-   - Runs it through DuckDuckGo web search
+   - Runs it through Brave Search
    - Asks the LLM to extract website URL, email address, and phone number from the search snippets
 3. **apply_results** — writes whatever was found back to the contact record. Partial updates are fine — if only an email was found, only the email gets written.
 
-**LLM:** `CHEAP_LLM` env var (deepseek-chat or claude-haiku)
+**LLM:** `deepseek-chat` (hardcoded — bypasses `CHEAP_LLM`)
 
 **Output:** contacts updated with website/email/phone where found. No status change — enrichment doesn't promote or drop anyone.
 
@@ -123,7 +123,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
    - `maybe` — website unclear, too thin, or mixed signals — flagged for manual review
    - `dropped` — exclusively blue-chip or no fit
 
-**LLM:** `CHEAP_LLM` env var for gallery evaluation (reading + reasoning)
+**LLM:** `deepseek-chat` (hardcoded — bypasses `CHEAP_LLM`)
 
 **What the LLM looks for:**
 
@@ -154,7 +154,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
    - Asks the LLM to write a first-contact email using all of this: research notes, scout reasoning, website content, and past interactions
 3. **queue_drafts** — inserts drafts into `approval_queue` with `status=pending`
 
-**LLM:** Claude Sonnet — quality matters here, this is the email a human reads.
+**LLM:** `claude-sonnet-4-6` (hardcoded — quality matters here, this is the email a human reads)
 
 **What the LLM is told to do:**
 
@@ -197,7 +197,54 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 2. **draft_followup_emails** — drafts a brief follow-up for each, referencing the original outreach subject line
 3. Puts drafts in the **approval queue** (not sent directly — human reviews first)
 
-**LLM:** Claude Sonnet (writing quality matters for both replies and follow-ups)
+**LLM:** `claude-sonnet-4-6` (hardcoded)
+
+---
+
+## Marketing agents
+
+These two agents run independently of the contact pipeline. They don't touch `contacts`, `approval_queue`, or email at all — they're about keeping the broader art marketing strategy current.
+
+### 7. Marketing Research Agent
+
+**What it does:** Runs web searches on art marketing topics and stores summarized findings in `marketing_research`. Two work streams per run.
+
+**Work stream 1 — General scan:** Six fixed queries covering broad art marketing topics (Instagram for painters, selling at German markets, gallery open submissions, etc.). Runs every time regardless of active strategies.
+
+**Work stream 2 — Targeted monitoring:** For each active strategy doc, asks the LLM to generate 2 search queries worth running this week — deadlines, events, specific sites to check. Runs the searches and stores findings tagged to the strategy.
+
+**LLM:** `CHEAP_LLM` (currently `claude-haiku`) — for query generation and result summarization
+
+**Output:** rows in `marketing_research` table, viewable via the `marketing_research_recent` MCP tool or at `/marketing/`.
+
+**Run manually:**
+
+```bash
+uv run python -m src.marketing.run_research
+```
+
+---
+
+### 8. Marketing Strategy Agent
+
+**What it does:** Reads all active strategy docs, collects open action items and recent research findings, and generates a weekly markdown digest. The digest surfaces what needs attention this week.
+
+**What it synthesizes:**
+
+- Open `- [ ]` action items parsed directly from each strategy markdown file
+- Strategies that haven't been reviewed in 3+ weeks (flagged as neglected)
+- Pipeline stats: contacts by status, overdue follow-ups, pending approvals
+- Research findings from the past 7 days
+
+**Output:** a structured digest stored in `marketing_digests`, retrievable via the `marketing_digest_latest` MCP tool or at `/marketing/`.
+
+**LLM:** `claude-sonnet-4-6` (hardcoded — this is the weekly summary you actually read)
+
+**Run manually:**
+
+```bash
+uv run python -m src.marketing.run_strategy
+```
 
 ---
 
@@ -230,7 +277,7 @@ contacted)
 
 ## How the agents are wired together
 
-The five worker agents are **tool-agnostic**. Each one defines its dependencies as Python Protocols (type-checked interfaces) and accepts them as constructor arguments. This means:
+The five pipeline worker agents are **tool-agnostic**. Each one defines its dependencies as Python Protocols (type-checked interfaces) and accepts them as constructor arguments. This means:
 
 - The agents contain no database imports, no email imports, no config imports
 - The supervisor injects concrete implementations at startup
@@ -242,14 +289,18 @@ The supervisor (`src/supervisor/graph.py`) is the only place that knows about th
 
 ## At a glance
 
-| Agent      | Reads from DB                            | Writes to DB                     | LLM           | Sends email                     |
-| ---------- | ---------------------------------------- | -------------------------------- | ------------- | ------------------------------- |
-| Supervisor | —                                        | `agent_runs`                     | —             | —                               |
-| Research   | —                                        | `contacts` (candidate)           | CHEAP_LLM     | —                               |
-| Enrichment | `contacts` (missing website/email)       | `contacts` (website/email/phone) | CHEAP_LLM     | —                               |
-| Scout      | `contacts` (candidate)                   | `contacts` (cold/maybe/dropped)  | CHEAP_LLM     | —                               |
-| Outreach   | `contacts` (cold)                        | `approval_queue`                 | Claude Sonnet | —                               |
-| Follow-up  | `inbox_messages`, `contacts` (contacted) | `interactions`, `consent_log`    | Claude Sonnet | Replies only (disabled for now) |
+| Agent              | Reads from DB                                            | Writes to DB                     | LLM               | Sends email             |
+| ------------------ | -------------------------------------------------------- | -------------------------------- | ----------------- | ----------------------- |
+| Supervisor         | —                                                        | `agent_runs`                     | —                 | —                       |
+| Research           | —                                                        | `contacts` (candidate)           | CHEAP_LLM         | —                       |
+| Enrichment         | `contacts` (missing website/email)                       | `contacts` (website/email/phone) | deepseek-chat     | —                       |
+| Scout              | `contacts` (candidate)                                   | `contacts` (cold/maybe/dropped)  | deepseek-chat     | —                       |
+| Outreach           | `contacts` (cold)                                        | `approval_queue`                 | claude-sonnet-4-6 | —                       |
+| Follow-up          | `inbox_messages`, `contacts` (contacted)                 | `interactions`, `consent_log`    | claude-sonnet-4-6 | Replies only (disabled) |
+| Marketing Research | `marketing_strategies`                                   | `marketing_research`             | CHEAP_LLM         | —                       |
+| Marketing Strategy | `marketing_strategies`, `marketing_research`, `contacts` | `marketing_digests`              | claude-sonnet-4-6 | —                       |
+
+**CHEAP_LLM** is currently `claude-haiku` (set in `.env`). Enrichment and Scout hardcode `deepseek-chat` directly and ignore this setting.
 
 ---
 
@@ -279,19 +330,80 @@ Each agent package exposes a `create_*_agent()` factory. You can instantiate and
 
 ---
 
-## MCP tools (manual operations)
+## Running a single agent on request (via Claude Code)
 
-The FastMCP server exposes tools for operating the CRM from Claude Code directly, without running the full pipeline.
+When you ask Claude Code to run a specific agent — e.g. "run research for München level 1" — Claude runs it directly as a subprocess in the current terminal session using the same `uv run python -m src.supervisor.run_*` entry points above. One agent at a time, in the foreground, with output streamed back into the conversation.
+
+This is different from the scheduled full pipeline run. Claude is not invoking the LangGraph supervisor — it's calling the individual agent's entry point directly. This means:
+
+- No checkpoint recovery (short runs don't need it)
+- No cross-agent dependencies — you can run enrichment on its own without running research first
+- Output and errors are immediately visible in the conversation
+- Claude can interpret the results, flag anomalies, and suggest next steps before you decide what to run next
+
+Typical pattern in a session:
+
+```
+You:    run research for Regensburg level 1
+Claude: [runs] uv run python -m src.supervisor.run_research --city Regensburg --level 1
+        → 23 contacts saved as candidate
+        → suggests running enrichment or scouting next
+```
+
+---
+
+## Direct database access (via Claude Code)
+
+Claude Code has a direct connection to the PostgreSQL database via `psql` and the project's `DATABASE_URL`. This is used for:
+
+- **Inspection** — checking contact counts, pipeline status, what a specific record looks like
+- **Manual corrections** — fixing a wrong status, updating a contact field that the UI doesn't expose, clearing a stuck approval
+- **Bulk operations** — e.g. promoting all `maybe` contacts in a city to `cold`, resetting a bad batch
+- **Debugging** — checking what an agent actually wrote, verifying that a run completed correctly
+
+Claude does not run arbitrary destructive queries without telling you what it's about to do. For reads and targeted updates it proceeds directly. For bulk deletes or anything that touches many rows, it states the query and confirms before executing.
+
+The DB is local PostgreSQL — there's no migration step or deployment involved. Changes take effect immediately.
+
+**Quick access pattern Claude uses:**
+
+```bash
+psql $DATABASE_URL -c "SELECT id, name, city, status FROM contacts WHERE city='Regensburg' ORDER BY created_at DESC LIMIT 10;"
+```
+
+The `DATABASE_URL` is loaded from `.env` automatically by the project's config, and Claude reads it from there when constructing ad-hoc queries.
+
+---
+
+## MCP tools (manual operations from Claude Code)
+
+The FastMCP server (`src/mcp/server.py`) exposes tools that Claude Code can call conversationally — no shell command needed.
 
 **Contact management:**
 
 | Tool                               | What it does                             |
 | ---------------------------------- | ---------------------------------------- |
-| `contact_search`                   | Search by name, city, status             |
-| `contact_get`                      | Full contact record                      |
-| `contact_update`                   | Edit any field                           |
+| `contacts_list`                    | List contacts, filter by status          |
 | `manual_drop(contact_id, reason)`  | Set status=dropped and log the reason    |
 | `manual_promote(contact_id, note)` | Set status=cold (move to outreach queue) |
+
+**Approvals:**
+
+| Tool                              | What it does                          |
+| --------------------------------- | ------------------------------------- |
+| `approval_list`                   | List pending approval queue items     |
+| `approval_approve(item_id, note)` | Approve a draft — triggers email send |
+| `approval_reject(item_id, note)`  | Reject a draft                        |
+
+**Pipeline & runs:**
+
+| Tool                        | What it does                          |
+| --------------------------- | ------------------------------------- |
+| `pipeline_status`           | Contact counts by status              |
+| `agent_runs`                | Recent agent run history and outcomes |
+| `research_status`           | Cities scanned and levels completed   |
+| `run_research(city, level)` | Trigger a research run for a city     |
+| `trigger_run`               | Trigger a full pipeline run           |
 
 **City context:**
 
@@ -299,11 +411,13 @@ The FastMCP server exposes tools for operating the CRM from Claude Code directly
 | ------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `set_city_notes(city, notes, character, country)` | Set market_character (tourist/mixed/upscale/unknown) and free-text notes for a city |
 
-**Outreach:**
+**Marketing:**
 
-| Tool                               | What it does                                                    |
-| ---------------------------------- | --------------------------------------------------------------- |
-| `draft_first_contact(contact_id)`  | Draft an email for one contact and put it in the approval queue |
-| `scout_city(city, country, level)` | Run research + scout for a city directly                        |
+| Tool                                             | What it does                                              |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| `marketing_digest_latest`                        | Retrieve the most recent weekly strategy digest           |
+| `marketing_strategy_list`                        | List all active strategy docs and their review status     |
+| `marketing_action_items`                         | All open `- [ ]` action items across strategy docs        |
+| `marketing_research_recent(days, strategy_slug)` | Recent research findings, optionally filtered by strategy |
 
 **City characters pre-seeded:** Landsberg, Konstanz, Friedrichshafen, Lindau, Garmisch-Partenkirchen, Rosenheim → `tourist`. Munich, Zurich, Basel → `upscale`. Augsburg, Heidelberg, Tübingen → `mixed`.

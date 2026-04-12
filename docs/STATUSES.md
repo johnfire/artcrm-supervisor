@@ -13,6 +13,7 @@
 | Status             | Description                                                                                                |
 | ------------------ | ---------------------------------------------------------------------------------------------------------- |
 | `meeting`          | A meeting has been arranged or confirmed.                                                                  |
+| `proposal`         | A formal proposal has been submitted (e.g. consignment terms, exhibition brief). Awaiting their decision.  |
 | `accepted`         | Contact has agreed to display or purchase work. Active relationship.                                       |
 | `networking_visit` | Responded positively but no current exhibition opportunity. Flagged to revisit in person at a future date. |
 
@@ -28,6 +29,7 @@
 
 | Status           | Description                                                                                                                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rejected`       | Contact explicitly declined — said no to a proposal or outreach. No further automated contact.                                                                                                    |
 | `dropped`        | Decided not to pursue after at least one contact attempt — wrong fit, no response after multiple tries, or venue closed. Never set before first contact; use `cold` if no outreach has been made. |
 | `do_not_contact` | Opted out or explicitly asked not to be contacted. Blocked from all outreach by the compliance check.                                                                                             |
 | `closed`         | Relationship ended after a completed engagement.                                                                                                                                                  |
@@ -38,6 +40,7 @@
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lead_unverified` | Imported or auto-discovered but not yet validated — website, name, or contact details may be incomplete or wrong. Needs enrichment or manual check before entering the main pipeline. |
 | `bad_email`       | Outreach email bounced or was undeliverable. Email address needs to be verified or corrected before re-outreach.                                                                      |
+| `online`          | Online-only presence (e-commerce, web gallery, etc.) — no physical venue to visit. Excluded from scouting, automated outreach, and follow-up. Contact manually only if warranted.     |
 
 ---
 
@@ -46,7 +49,7 @@
 ```
 candidate → (scout scores) → cold → (outreach sent) → contacted
                                                            ↓
-                                        meeting → accepted / networking_visit
+                                        meeting → proposal → accepted / networking_visit
                                                            ↓
-                                        dormant / on_hold / dropped / do_not_contact
+                                        rejected / dormant / on_hold / dropped / do_not_contact
 ```
