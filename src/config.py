@@ -40,6 +40,10 @@ SCOUT_THRESHOLD: int = int(os.getenv("SCOUT_THRESHOLD", "75"))
 # Set EMAIL_ENABLED=false to disable all outgoing email (approvals will be marked approved_unsent)
 EMAIL_ENABLED: bool = os.getenv("EMAIL_ENABLED", "true").lower() == "true"
 
+# --- Open Brain memory ---
+OPEN_BRAIN_URL: str = os.getenv("OPEN_BRAIN_URL", "")
+OPEN_BRAIN_TOKEN: str = os.getenv("OPEN_BRAIN_TOKEN", "")
+
 # --- LLM backend for cheap/high-volume tasks (research, enrichment, scouting) ---
 # Options: deepseek-chat, claude-haiku
 CHEAP_LLM: str = os.getenv("CHEAP_LLM", "deepseek-chat")
