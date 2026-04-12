@@ -21,7 +21,7 @@ def main():
     from src.config import ACTIVE_MISSION
     from src.tools import (
         read_inbox, match_contact_by_email, log_interaction, set_opt_out,
-        mark_bad_email, set_visit_when_nearby, save_inbox_classification,
+        mark_bad_email, record_warm_outcome, set_visit_when_nearby, save_inbox_classification,
         get_overdue_contacts, queue_for_approval,
         start_run, finish_run, get_llm,
     )
@@ -34,6 +34,7 @@ def main():
         log_interaction=log_interaction,
         set_opt_out=set_opt_out,
         handle_bounce=mark_bad_email,
+        record_warm_outcome=record_warm_outcome,
         set_visit_when_nearby=set_visit_when_nearby,
         save_inbox_classification=save_inbox_classification,
         fetch_overdue=get_overdue_contacts,

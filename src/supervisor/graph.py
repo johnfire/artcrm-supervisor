@@ -30,7 +30,7 @@ from src.tools import (
     record_scan_result, can_run_level,
     get_city_market_context,
     web_search, geo_search, google_maps_search, fetch_page,
-    read_inbox,
+    read_inbox, mark_bad_email, record_warm_outcome,
     get_llm,
 )
 
@@ -113,6 +113,8 @@ def _build_agents():
         match_contact=match_contact_by_email,
         log_interaction=log_interaction,
         set_opt_out=set_opt_out,
+        handle_bounce=mark_bad_email,
+        record_warm_outcome=record_warm_outcome,
         set_visit_when_nearby=set_visit_when_nearby,
         save_inbox_classification=save_inbox_classification,
         fetch_overdue=get_overdue_contacts,
