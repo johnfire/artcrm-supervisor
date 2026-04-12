@@ -9,6 +9,7 @@ from src.tools.marketing_db import (
     get_all_strategies, get_latest_digest, get_digest_archive,
     get_digest_by_id, get_strategy_by_id, get_recent_research,
 )
+from src.tools.memory import capture_thought, search_artcrm_thoughts
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
@@ -23,16 +24,41 @@ def _render_digest(digest: dict | None) -> dict | None:
     return digest
 
 
+@router.get("/marketing/observations", response_class=HTMLResponse)
+def observations_list(request: Request, topic: str = ""):
+    query = f"{topic} " if topic else ""
+    thoughts = search_artcrm_thoughts(f"{query}artcrm", limit=20)
+    return templates.TemplateResponse("partials/observations_list.html", {
+        "request": request,
+        "observations": thoughts,
+        "topic": topic,
+    })
+
+
+@router.post("/marketing/observations", response_class=HTMLResponse)
+def add_observation(request: Request, content: str = Form(...)):
+    if content.strip():
+        capture_thought(content.strip())
+    thoughts = search_artcrm_thoughts("artcrm", limit=20)
+    return templates.TemplateResponse("partials/observations_list.html", {
+        "request": request,
+        "observations": thoughts,
+        "topic": "",
+    })
+
+
 @router.get("/marketing/", response_class=HTMLResponse)
 def marketing_page(request: Request):
     strategies = get_all_strategies()
     digest = _render_digest(get_latest_digest())
     archive = get_digest_archive(limit=12)
+    observations = search_artcrm_thoughts("artcrm", limit=20)
     return templates.TemplateResponse("marketing.html", {
         "request": request,
         "strategies": strategies,
         "digest": digest,
         "archive": archive,
+        "observations": observations,
     })
 
 

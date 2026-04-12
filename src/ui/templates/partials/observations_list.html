@@ -1,0 +1,9 @@
+{% if observations %}
+  {% for obs in observations %}
+  <article class="observation-card">
+    <p class="observation-content">{{ obs }}</p>
+  </article>
+  {% endfor %}
+{% else %}
+<p class="muted">No observations yet. Add one below or run a city research scan.</p>
+{% endif %}

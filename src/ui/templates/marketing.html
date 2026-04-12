@@ -69,4 +69,34 @@
   </ul>
 </section>
 {% endif %}
+
+<section style="margin-top:2rem;" id="observations-section">
+  <h2 style="font-size:1rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:.75rem;">
+    Observations
+  </h2>
+
+  <form
+    hx-post="/marketing/observations"
+    hx-target="#observations-list"
+    hx-swap="innerHTML"
+    hx-on::after-request="this.reset()"
+    style="display:flex; gap:.5rem; margin-bottom:1rem;"
+  >
+    <input
+      type="text"
+      name="content"
+      placeholder="What did you notice? (city, venue type, tone, season...)"
+      style="flex:1;"
+    />
+    <button type="submit" class="btn-primary btn-sm">Add</button>
+  </form>
+
+  <div
+    id="observations-list"
+    hx-get="/marketing/observations"
+    hx-trigger="load"
+  >
+    {% include "partials/observations_list.html" %}
+  </div>
+</section>
 {% endblock %}
