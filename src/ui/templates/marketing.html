@@ -39,7 +39,7 @@
     <tbody>
       {% for s in strategies %}
       <tr>
-        <td><strong>{{ s.name }}</strong></td>
+        <td><a href="/marketing/strategy/{{ s.id }}"><strong>{{ s.name }}</strong></a></td>
         <td>
           <span class="badge {% if s.status == 'active' %}badge-green{% elif s.status == 'on_hold' %}badge-yellow{% else %}badge-grey{% endif %}">
             {{ s.status }}

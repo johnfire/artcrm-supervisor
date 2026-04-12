@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ strategy.name }} — ArtCRM Supervisor{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:1rem;">
+  <div>
+    <a href="/marketing/" class="muted small" style="text-decoration:none;">← Marketing</a>
+    <h1 style="margin-top:.25rem;">{{ strategy.name }}</h1>
+  </div>
+  <span class="badge {% if strategy.status == 'active' %}badge-green{% elif strategy.status == 'on_hold' %}badge-yellow{% else %}badge-grey{% endif %}">
+    {{ strategy.status }}
+  </span>
+</div>
+
+<div class="strategy-editor">
+  <div class="strategy-pane strategy-pane--edit">
+    <div class="pane-header">
+      <span class="pane-label">Edit</span>
+      <button form="save-form" type="submit" class="btn-primary btn-sm">Save</button>
+    </div>
+    <form id="save-form"
+          hx-post="/marketing/strategy/{{ strategy.id }}/save"
+          hx-target="#strategy-preview"
+          hx-swap="innerHTML">
+      <textarea name="content" class="strategy-textarea" spellcheck="false">{{ content }}</textarea>
+    </form>
+  </div>
+
+  <div class="strategy-pane strategy-pane--preview">
+    <div class="pane-header">
+      <span class="pane-label">Preview</span>
+    </div>
+    <div id="strategy-preview" class="digest-content strategy-preview-content">
+      {{ preview_html | safe }}
+    </div>
+  </div>
+</div>
+
+{% if research %}
+<section style="margin-top:2.5rem;">
+  <h2 style="font-size:1rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:.75rem;">
+    Recent Research <span class="muted" style="font-weight:normal;">(last 30 days)</span>
+  </h2>
+  {% for r in research %}
+  <article class="card" style="margin-bottom:.75rem;">
+    <div class="card-header">
+      <strong>{{ r.topic }}</strong>
+      <span class="muted small">{{ r.run_date }}</span>
+    </div>
+    <p style="margin:.5rem 0 0; line-height:1.6;">{{ r.summary }}</p>
+    {% if r.source_url %}
+    <a href="{{ r.source_url }}" class="muted small" target="_blank" rel="noopener">{{ r.source_url }}</a>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

@@ -31,6 +31,15 @@ def get_all_strategies(status: str | None = None) -> list[dict]:
         return [_serialize(row) for row in cur.fetchall()]
 
 
+def get_strategy_by_id(strategy_id: int) -> dict | None:
+    """Return a single marketing strategy by id."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM marketing_strategies WHERE id = %s", (strategy_id,))
+        row = cur.fetchone()
+        return _serialize(row) if row else None
+
+
 def get_latest_digest() -> dict | None:
     """Return the most recent weekly digest, or None if none exist."""
     with db() as conn:
