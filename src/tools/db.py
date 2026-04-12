@@ -67,17 +67,17 @@ def save_contact(
 
 
 def get_candidates(limit: int = 50, city: str | None = None) -> list[dict]:
-    """Return contacts with status='candidate'."""
+    """Return contacts with status='candidate' or 'lead_unverified'."""
     with db() as conn:
         cur = conn.cursor()
         if city:
             cur.execute(
-                "SELECT * FROM contacts WHERE status = 'candidate' AND city = %s ORDER BY created_at ASC LIMIT %s",
+                "SELECT * FROM contacts WHERE status IN ('candidate', 'lead_unverified') AND city = %s ORDER BY created_at ASC LIMIT %s",
                 (city, limit),
             )
         else:
             cur.execute(
-                "SELECT * FROM contacts WHERE status = 'candidate' ORDER BY created_at ASC LIMIT %s",
+                "SELECT * FROM contacts WHERE status IN ('candidate', 'lead_unverified') ORDER BY created_at ASC LIMIT %s",
                 (limit,),
             )
         return [_serialize_row(dict(r)) for r in cur.fetchall()]
