@@ -77,6 +77,7 @@ def _build_agents():
     enrichment = create_enrichment_agent(
         llm=enrichment_llm,
         web_search=web_search,
+        fetch_page=fetch_page,
         fetch_contacts=get_contacts_needing_enrichment,
         update_contact=update_contact_details,
         start_run=start_run,

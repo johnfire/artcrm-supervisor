@@ -21,7 +21,7 @@ def main():
 
     from src.tools import (
         get_contacts_needing_enrichment, update_contact_details,
-        web_search, start_run, finish_run, get_llm,
+        web_search, fetch_page, start_run, finish_run, get_llm,
     )
     from artcrm_enrichment_agent import create_enrichment_agent
     import functools
@@ -31,6 +31,7 @@ def main():
     agent = create_enrichment_agent(
         llm=get_llm("deepseek"),
         web_search=web_search,
+        fetch_page=fetch_page,
         fetch_contacts=fetch_fn,
         update_contact=update_contact_details,
         start_run=start_run,

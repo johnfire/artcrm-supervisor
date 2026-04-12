@@ -243,6 +243,29 @@ def check_compliance(contact_id: int) -> bool:
         return True
 
 
+def mark_bad_email(contact_id: int) -> None:
+    """
+    Mark a contact's email as undeliverable.
+    Sets status='bad_email' and logs a bounce interaction.
+    Contact is removed from all automated pipelines until email is corrected.
+    """
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE contacts SET status = 'bad_email', updated_at = NOW() WHERE id = %s",
+            (contact_id,),
+        )
+        cur.execute(
+            """
+            INSERT INTO interactions
+                (contact_id, interaction_date, method, direction, summary, outcome)
+            VALUES (%s, NOW(), 'email', 'inbound', 'Delivery failure — email bounced', 'bounce')
+            """,
+            (contact_id,),
+        )
+        logger.info("mark_bad_email: contact_id=%d marked as bad_email", contact_id)
+
+
 def set_opt_out(contact_id: int) -> None:
     """Record opt-out in consent_log and update contact status to 'do_not_contact'."""
     with db() as conn:
