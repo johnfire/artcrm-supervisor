@@ -139,3 +139,35 @@ class TestStartFinishRun:
 
         sql_calls = [str(c) for c in cur.execute.call_args_list]
         assert any("UPDATE" in s for s in sql_calls)
+
+
+class TestRecordWarmOutcome:
+    def test_inserts_outcome_row(self):
+        with patch("src.tools.db.db") as mock_db:
+            mock_conn = MagicMock()
+            mock_db.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_db.return_value.__exit__ = MagicMock(return_value=False)
+            mock_cur = MagicMock()
+            mock_conn.cursor.return_value = mock_cur
+            mock_cur.fetchone.side_effect = [
+                {"id": 10},   # sent interaction
+                {"id": 11},   # reply interaction
+                {"draft_body": "word " * 120},  # queue row
+            ]
+
+            from src.tools.db import record_warm_outcome
+            record_warm_outcome(contact_id=42)
+
+        mock_cur.execute.assert_called()
+
+    def test_skips_silently_when_no_sent_interaction(self):
+        with patch("src.tools.db.db") as mock_db:
+            mock_conn = MagicMock()
+            mock_db.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_db.return_value.__exit__ = MagicMock(return_value=False)
+            mock_cur = MagicMock()
+            mock_conn.cursor.return_value = mock_cur
+            mock_cur.fetchone.return_value = None
+
+            from src.tools.db import record_warm_outcome
+            record_warm_outcome(contact_id=42)  # should not raise

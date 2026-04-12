@@ -35,6 +35,8 @@ from .db import (
     get_all_city_scan_status,
     record_scan_result,
     can_run_level,
+    record_warm_outcome,
+    get_outreach_outcomes,
 )
 from .search import web_search, geo_search, google_maps_search, fetch_page
 from .email import send_email, read_inbox
@@ -52,6 +54,7 @@ __all__ = [
     "get_cities", "add_city", "get_city_market_context", "update_city_market",
     "get_city_scan_status", "get_all_city_scan_status",
     "record_scan_result", "can_run_level",
+    "record_warm_outcome", "get_outreach_outcomes",
     "web_search", "geo_search", "google_maps_search", "fetch_page",
     "send_email", "read_inbox",
     "get_llm",
