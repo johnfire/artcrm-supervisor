@@ -53,12 +53,16 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
         return False
 
 
-def read_inbox(limit: int = 50) -> list[dict]:
+def read_inbox(limit: int = 50, since_days: int = 14) -> list[dict]:
     """
-    Read unseen emails from the INBOX via Proton Bridge IMAP.
+    Read recent emails from the INBOX via Proton Bridge IMAP (last `since_days` days).
+    Fetches ALL messages in the window regardless of seen/unseen status — opening an
+    email in Proton Mail no longer causes the CRM to miss it.
     Saves each message to the inbox_messages table (deduplication handled there).
     Returns list of message dicts: {id, message_id, from_email, subject, body, received_at}.
     """
+    from datetime import timedelta
+    since_date = (datetime.now(timezone.utc) - timedelta(days=since_days)).strftime("%d-%b-%Y")
     messages = []
     try:
         with imaplib.IMAP4(PROTON_IMAP_HOST, PROTON_IMAP_PORT) as imap:
@@ -66,7 +70,7 @@ def read_inbox(limit: int = 50) -> list[dict]:
             imap.login(PROTON_EMAIL, PROTON_PASSWORD)
             imap.select("INBOX")
 
-            _, data = imap.search(None, "UNSEEN")
+            _, data = imap.search(None, f"SINCE {since_date}")
             message_ids = data[0].split()
 
             for uid in message_ids[-limit:]:
@@ -80,13 +84,22 @@ def read_inbox(limit: int = 50) -> list[dict]:
                 received_str = parsed.get("Date", "")
 
                 body = ""
+                html_body = ""
                 if parsed.is_multipart():
                     for part in parsed.walk():
-                        if part.get_content_type() == "text/plain":
+                        ct = part.get_content_type()
+                        if ct == "text/plain" and not body:
                             body = part.get_payload(decode=True).decode("utf-8", errors="replace")
-                            break
+                        elif ct == "text/html" and not html_body:
+                            html_body = part.get_payload(decode=True).decode("utf-8", errors="replace")
                 else:
                     body = parsed.get_payload(decode=True).decode("utf-8", errors="replace")
+                # Fall back to stripped HTML if no plain text
+                if not body.strip() and html_body:
+                    import html as html_mod
+                    import re
+                    text = re.sub(r"<[^>]+>", " ", html_body)
+                    body = re.sub(r" {2,}", " ", html_mod.unescape(text)).strip()
 
                 try:
                     received_at = email_lib.utils.parsedate_to_datetime(received_str).astimezone(timezone.utc)

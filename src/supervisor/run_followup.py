@@ -22,14 +22,23 @@ def main():
     from src.tools import (
         read_inbox, match_contact_by_email, log_interaction, set_opt_out,
         mark_bad_email, record_warm_outcome, set_visit_when_nearby, save_inbox_classification,
-        get_overdue_contacts, queue_for_approval,
+        get_overdue_contacts, get_unprocessed_inbox, queue_for_approval,
         start_run, finish_run, get_llm,
     )
     from artcrm_followup_agent import create_followup_agent
 
+    def fetch_inbox_with_backlog(limit: int = 50) -> list[dict]:
+        """Fetch new messages from IMAP, then merge any previously unprocessed DB messages."""
+        new_messages = read_inbox(limit=limit)
+        new_ids = {m["id"] for m in new_messages}
+        backlog = [m for m in get_unprocessed_inbox() if m["id"] not in new_ids]
+        if backlog:
+            logger.info("fetch_inbox_with_backlog: %d backlog message(s) added", len(backlog))
+        return new_messages + backlog
+
     agent = create_followup_agent(
         llm=get_llm("claude"),
-        fetch_inbox=read_inbox,
+        fetch_inbox=fetch_inbox_with_backlog,
         match_contact=match_contact_by_email,
         log_interaction=log_interaction,
         set_opt_out=set_opt_out,

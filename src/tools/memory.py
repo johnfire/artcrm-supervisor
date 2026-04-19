@@ -48,7 +48,7 @@ def _run_tool(tool_name: str, arguments: dict) -> str:
     async def _inner() -> str:
         from mcp.client.streamable_http import streamablehttp_client
         from mcp import ClientSession
-        headers = {"Authorization": f"Bearer {OPEN_BRAIN_TOKEN}"}
+        headers = {"x-brain-key": OPEN_BRAIN_TOKEN}
         async with streamablehttp_client(OPEN_BRAIN_URL, headers=headers) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()

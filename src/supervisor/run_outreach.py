@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def main():
     parser = argparse.ArgumentParser(description="Run outreach agent for a city or globally")
     parser.add_argument("--city", default=None, help="Filter outreach to a specific city")
-    parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--limit", type=int, default=50)
     args = parser.parse_args()
 
     from src.config import ACTIVE_MISSION

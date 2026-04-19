@@ -202,7 +202,7 @@ def create_supervisor(checkpointer=None):
 
     def run_outreach(state: SupervisorState) -> dict:
         try:
-            result = outreach_agent.invoke({"limit": 1})
+            result = outreach_agent.invoke({"limit": 50})
             logger.info("outreach: %s", result.get("summary", ""))
             return {"outreach_summary": result.get("summary", "")}
         except Exception as e:
