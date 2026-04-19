@@ -203,6 +203,8 @@ def web_search(query: str, max_results: int = 8) -> list[dict]:
         resp.raise_for_status()
         items = resp.json().get("web", {}).get("results", [])
         results = [{"title": r.get("title", ""), "url": r.get("url", ""), "snippet": r.get("description", "")} for r in items]
+        from src.tools.costs import record_search
+        record_search()
         logger.info("web_search: %d results for '%s'", len(results), query)
         return results
     except Exception as e:

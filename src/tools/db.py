@@ -794,6 +794,8 @@ def get_contact_interactions(contact_id: int) -> list[dict]:
 
 def start_run(agent_name: str, input_data: dict) -> int:
     """Insert a new agent_run record. Returns run_id."""
+    from src.tools.costs import reset_costs
+    reset_costs()
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -808,6 +810,10 @@ def start_run(agent_name: str, input_data: dict) -> int:
 
 def finish_run(run_id: int, status: str, summary: str, output_data: dict) -> None:
     """Update an agent_run record with completion details."""
+    from src.tools.costs import get_costs, format_costs
+    costs = get_costs()
+    cost_line = format_costs()
+    full_summary = f"{summary} | {cost_line}" if summary else cost_line
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -816,5 +822,36 @@ def finish_run(run_id: int, status: str, summary: str, output_data: dict) -> Non
             SET status = %s, summary = %s, output_json = %s, finished_at = NOW()
             WHERE id = %s
             """,
-            (status, summary, json.dumps(output_data, default=str), run_id),
+            (status, full_summary, json.dumps(output_data, default=str), run_id),
         )
+        cur.execute(
+            """
+            INSERT INTO run_costs (run_id, search_queries, llm_usage_json, total_usd)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                run_id,
+                costs["breakdown"].get("brave_search", {}).get("queries", 0),
+                json.dumps({k: v for k, v in costs["breakdown"].items() if k != "brave_search"}),
+                costs["total_usd"],
+            ),
+        )
+
+
+def get_run_costs(limit: int = 20) -> list[dict]:
+    """Return recent run costs joined with agent_run summaries."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT
+                rc.run_id, ar.agent_name, ar.started_at, ar.finished_at,
+                rc.search_queries, rc.llm_usage_json, rc.total_usd
+            FROM run_costs rc
+            JOIN agent_runs ar ON ar.id = rc.run_id
+            ORDER BY rc.recorded_at DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        return [_serialize_row(dict(r)) for r in cur.fetchall()]
