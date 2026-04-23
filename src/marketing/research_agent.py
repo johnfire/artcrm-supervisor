@@ -1,4 +1,3 @@
-# src/marketing/research_agent.py
 """
 Marketing Research Agent.
 
@@ -12,6 +11,8 @@ import logging
 from datetime import date
 from pathlib import Path
 
+from langchain_core.messages import HumanMessage
+
 from src.tools.marketing_db import (
     get_all_strategies,
     save_research_finding,
@@ -22,14 +23,17 @@ logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 
-GENERAL_QUERIES = [
-    "art marketing strategies for painters 2025 2026",
-    "how to sell original paintings online Europe",
-    "plein air painting marketing visibility strategies",
-    "selling fine art at markets Germany Bavaria",
-    "Instagram marketing for fine art painters",
-    "art galleries Germany emerging artists open submissions 2026",
-]
+
+def _general_queries() -> list[str]:
+    year = date.today().year
+    return [
+        f"art marketing strategies for painters {year}",
+        "how to sell original paintings online Europe",
+        "plein air painting marketing visibility strategies",
+        "selling fine art at markets Germany Bavaria",
+        "Instagram marketing for fine art painters",
+        f"art galleries Germany emerging artists open submissions {year}",
+    ]
 
 
 def _read_doc(doc_path: str) -> str:
@@ -43,7 +47,6 @@ def _read_doc(doc_path: str) -> str:
 
 def _get_monitoring_queries(llm, strategy_name: str, doc_content: str) -> list[str]:
     """Ask the LLM what to search for given this strategy doc."""
-    from langchain_core.messages import HumanMessage
     if not doc_content.strip():
         return []
     prompt = f"""Given this marketing strategy document for artist Christopher Rehm, identify 2 specific
@@ -57,18 +60,21 @@ Document:
 
 Reply with exactly 2 search queries, one per line, no numbering or bullets. Just the queries."""
 
-    response = llm.invoke([HumanMessage(content=prompt)])
-    lines = [line.strip() for line in response.content.strip().splitlines() if line.strip()]
-    return lines[:2]
+    try:
+        response = llm.invoke([HumanMessage(content=prompt)])
+        lines = [line.strip() for line in response.content.strip().splitlines() if line.strip()]
+        return lines[:2]
+    except Exception as e:
+        logger.warning("research_agent: monitoring query generation failed for '%s': %s", strategy_name, e)
+        return []
 
 
 def _synthesize_findings(llm, query: str, results: list[dict]) -> str | None:
     """Summarize search results into a 2-3 sentence finding."""
-    from langchain_core.messages import HumanMessage
     if not results:
         return None
     snippets = "\n".join(
-        f"- {r['title']}: {r['snippet']}" for r in results[:5]
+        f"- {r['title']}: {r.get('snippet', '')[:200]}" for r in results[:5]
     )
     prompt = f"""Summarize these web search results in 2-3 sentences for artist Christopher Rehm.
 Focus on anything actionable or relevant to marketing original artwork.
@@ -79,11 +85,15 @@ Search query: {query}
 Results:
 {snippets}"""
 
-    response = llm.invoke([HumanMessage(content=prompt)])
-    summary = response.content.strip()
-    if summary == "SKIP" or len(summary) < 20:
+    try:
+        response = llm.invoke([HumanMessage(content=prompt)])
+        summary = response.content.strip()
+        if summary == "SKIP" or len(summary) < 20:
+            return None
+        return summary
+    except Exception as e:
+        logger.warning("research_agent: synthesis failed for query '%s': %s", query[:50], e)
         return None
-    return summary
 
 
 def run(llm) -> int:
@@ -93,11 +103,16 @@ def run(llm) -> int:
     """
     today = str(date.today())
     total_saved = 0
+    general_queries = _general_queries()
 
     # --- Work stream 1: General scan ---
-    logger.info("research_agent: running %d general queries", len(GENERAL_QUERIES))
-    for query in GENERAL_QUERIES:
-        results = web_search(query, max_results=5)
+    logger.info("research_agent: running %d general queries", len(general_queries))
+    for query in general_queries:
+        try:
+            results = web_search(query, max_results=5)
+        except Exception as e:
+            logger.warning("research_agent: web_search failed for '%s': %s", query[:50], e)
+            continue
         summary = _synthesize_findings(llm, query, results)
         if summary:
             source_url = results[0]["url"] if results else None
@@ -121,7 +136,11 @@ def run(llm) -> int:
             len(queries), s["name"]
         )
         for query in queries:
-            results = web_search(query, max_results=5)
+            try:
+                results = web_search(query, max_results=5)
+            except Exception as e:
+                logger.warning("research_agent: web_search failed for '%s': %s", query[:50], e)
+                continue
             summary = _synthesize_findings(llm, query, results)
             if summary:
                 source_url = results[0]["url"] if results else None

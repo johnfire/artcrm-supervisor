@@ -1,4 +1,3 @@
-# src/marketing/strategy_agent.py
 """
 Marketing Strategy Agent.
 
@@ -13,6 +12,8 @@ import re
 from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 
+from langchain_core.messages import HumanMessage
+
 from src.tools.marketing_db import (
     get_all_strategies,
     get_recent_research,
@@ -23,7 +24,6 @@ from src.tools.marketing_db import (
 
 logger = logging.getLogger(__name__)
 
-# Repo root — strategy docs are relative to this
 REPO_ROOT = Path(__file__).parent.parent.parent
 
 
@@ -56,20 +56,13 @@ def _weeks_since_reviewed(last_reviewed_at: str | None) -> int | None:
     return delta.days // 7
 
 
-def run(llm) -> str:
-    """
-    Run the strategy agent. Returns the generated digest content.
-    `llm` is a LangChain BaseChatModel (use Claude Sonnet).
-    """
-    from langchain_core.messages import HumanMessage
-    today = date.today()
-    # Monday of this week
-    week_date = str(today - timedelta(days=today.weekday()))
-
-    strategies = get_all_strategies(status="active")
-    logger.info("strategy_agent: reviewing %d active strategies", len(strategies))
-
-    # --- Collect action items and doc summaries ---
+def _build_digest_prompt(
+    today: date,
+    week_date: str,
+    strategies: list[dict],
+    pipeline: dict,
+    findings: list[dict],
+) -> str:
     strategy_sections = []
     for s in strategies:
         action_items = _parse_action_items(s["doc_path"])
@@ -84,32 +77,26 @@ def run(llm) -> str:
 
         if action_items:
             section += f"Open action items ({len(action_items)}):\n"
-            for item in action_items[:10]:  # cap at 10 per strategy
+            for item in action_items[:10]:
                 section += f"- [ ] {item}\n"
         else:
             section += "No open action items found in doc.\n"
         strategy_sections.append(section)
 
-    # --- Pipeline stats ---
-    pipeline = get_pipeline_stats()
     pipeline_text = (
         f"Pipeline: {pipeline['by_status']}\n"
         f"Overdue follow-ups (no contact in 60d): {pipeline['overdue_follow_ups']}\n"
         f"Pending approvals: {pipeline['pending_approvals']}"
     )
 
-    # --- Research findings this week ---
-    findings = get_recent_research(days=7)
-    if findings:
-        research_text = "\n".join(
-            f"- [{f['topic']}] {f['summary']}" for f in findings
-        )
-    else:
-        research_text = "No research findings this week."
+    research_text = (
+        "\n".join(f"- [{f['topic']}] {f['summary']}" for f in findings)
+        if findings else "No research findings this week."
+    )
 
-    # --- Build LLM prompt ---
     strategies_block = "\n\n".join(strategy_sections)
-    prompt = f"""You are the marketing coordinator for Christopher Rehm, a watercolor and oil painter
+
+    return f"""You are the marketing coordinator for Christopher Rehm, a watercolor and oil painter
 based in Klosterlechfeld, Bavaria. Your job is to write his weekly marketing digest.
 
 Today is {today.isoformat()}. Write a digest for the week of {week_date}.
@@ -147,15 +134,30 @@ Brief note on any paused/on_hold strategies.
 
 Keep the whole digest under 600 words. Write in a direct, practical tone. No marketing fluff."""
 
+
+def run(llm) -> str:
+    """
+    Run the strategy agent. Returns the generated digest content.
+    `llm` is a LangChain BaseChatModel (use Claude Sonnet).
+    """
+    today = date.today()
+    week_date = str(today - timedelta(days=today.weekday()))
+
+    strategies = get_all_strategies(status="active")
+    logger.info("strategy_agent: reviewing %d active strategies", len(strategies))
+
+    pipeline = get_pipeline_stats()
+    findings = get_recent_research(days=7)
+
+    prompt = _build_digest_prompt(today, week_date, strategies, pipeline, findings)
+
     logger.info("strategy_agent: generating digest with LLM")
     response = llm.invoke([HumanMessage(content=prompt)])
     digest_content = response.content
 
-    # --- Save digest ---
     save_digest(week_date, digest_content)
     logger.info("strategy_agent: digest saved for week %s", week_date)
 
-    # --- Mark all active strategies as reviewed ---
     for s in strategies:
         update_strategy_reviewed(s["id"])
 

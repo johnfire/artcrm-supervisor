@@ -72,7 +72,7 @@ class TestSynthesizeFindings:
 
 class TestRunResearchAgent:
     def test_run_returns_count(self):
-        from src.marketing.research_agent import run, GENERAL_QUERIES
+        from src.marketing.research_agent import run, _general_queries
 
         mock_llm = MagicMock()
 
@@ -99,5 +99,29 @@ class TestRunResearchAgent:
         ):
             count = run(mock_llm)
 
-        assert count == len(GENERAL_QUERIES)
-        assert mock_save.call_count == len(GENERAL_QUERIES)
+        expected = len(_general_queries())
+        assert count == expected
+        assert mock_save.call_count == expected
+
+    def test_web_search_failure_is_skipped(self):
+        from src.marketing.research_agent import run
+
+        mock_llm = MagicMock()
+
+        with (
+            patch("src.marketing.research_agent.web_search", side_effect=Exception("network error")),
+            patch("src.marketing.research_agent.get_all_strategies", return_value=[]),
+            patch("src.marketing.research_agent.save_research_finding") as mock_save,
+        ):
+            count = run(mock_llm)
+
+        assert count == 0
+        mock_save.assert_not_called()
+
+    def test_general_queries_include_current_year(self):
+        from src.marketing.research_agent import _general_queries
+        from datetime import date
+
+        queries = _general_queries()
+        year = str(date.today().year)
+        assert any(year in q for q in queries)

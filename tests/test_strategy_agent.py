@@ -43,6 +43,31 @@ class TestWeeksSinceReviewed:
         assert result == 3
 
 
+class TestBuildDigestPrompt:
+    def test_includes_week_date_and_pipeline(self, tmp_path):
+        from src.marketing.strategy_agent import _build_digest_prompt
+        from datetime import date
+
+        today = date(2026, 4, 21)
+        pipeline = {"by_status": {"cold": 5}, "overdue_follow_ups": 1, "pending_approvals": 0}
+        prompt = _build_digest_prompt(today, "2026-04-20", [], pipeline, [])
+
+        assert "2026-04-21" in prompt
+        assert "2026-04-20" in prompt
+        assert "No research findings this week." in prompt
+
+    def test_research_findings_appear_in_prompt(self):
+        from src.marketing.strategy_agent import _build_digest_prompt
+        from datetime import date
+
+        findings = [{"topic": "Instagram tips", "summary": "Post reels for reach."}]
+        pipeline = {"by_status": {}, "overdue_follow_ups": 0, "pending_approvals": 0}
+        prompt = _build_digest_prompt(date.today(), "2026-04-20", [], pipeline, findings)
+
+        assert "Instagram tips" in prompt
+        assert "Post reels for reach." in prompt
+
+
 class TestRunStrategyAgent:
     def test_run_calls_save_digest(self):
         from src.marketing.strategy_agent import run
