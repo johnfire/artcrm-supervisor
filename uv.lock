@@ -75,16 +75,17 @@ version = "0.1.0"
 source = { editable = "../artcrm-followup-agent" }
 dependencies = [
     { name = "langchain-core" },
-    { name = "langgraph" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "langchain-core", specifier = ">=0.3.0" },
-    { name = "langgraph", specifier = ">=0.2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "artcrm-interview-agent"
@@ -107,16 +108,17 @@ version = "0.1.0"
 source = { editable = "../artcrm-outreach-agent" }
 dependencies = [
     { name = "langchain-core" },
-    { name = "langgraph" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "langchain-core", specifier = ">=0.3.0" },
-    { name = "langgraph", specifier = ">=0.2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "artcrm-research-agent"
@@ -141,16 +143,17 @@ version = "0.1.0"
 source = { editable = "../artcrm-scout-agent" }
 dependencies = [
     { name = "langchain-core" },
-    { name = "langgraph" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "langchain-core", specifier = ">=0.3.0" },
-    { name = "langgraph", specifier = ">=0.2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "artcrm-supervisor"
