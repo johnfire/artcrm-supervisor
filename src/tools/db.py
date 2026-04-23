@@ -172,7 +172,7 @@ def update_contact_details(contact_id: int, **kwargs) -> None:
 
 
 def match_contact_by_email(from_email: str) -> dict | None:
-    """Find a contact by email address. Returns None if not found."""
+    """Find a contact by email address, with domain fallback for corporate addresses."""
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -180,6 +180,16 @@ def match_contact_by_email(from_email: str) -> dict | None:
             (from_email,),
         )
         row = cur.fetchone()
+        if row:
+            return _serialize_row(dict(row))
+        _generic = {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "proton.me", "protonmail.com", "gmx.de", "gmx.net", "web.de", "t-online.de", "icloud.com"}
+        domain = from_email.split("@")[-1].lower() if "@" in from_email else ""
+        if domain and domain not in _generic:
+            cur.execute(
+                "SELECT * FROM contacts WHERE lower(email) LIKE lower(%s) LIMIT 1",
+                (f"%@{domain}",),
+            )
+            row = cur.fetchone()
         return _serialize_row(dict(row)) if row else None
 
 
