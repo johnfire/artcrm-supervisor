@@ -18,6 +18,8 @@ def main():
     parser.add_argument("--city", default=None, help="Filter outreach to a specific city")
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--level", type=int, default=None, help="Filter to a specific scan level (1=galleries/cafes/coworking)")
+    parser.add_argument("--neighborhood", default=None, help="Filter to a specific neighborhood within a city")
+    parser.add_argument("--min-tier", default=None, choices=["normal", "wealthy"], help="Exclude poor-tier neighborhoods (normal=exclude poor, wealthy=only wealthy)")
     args = parser.parse_args()
 
     from src.config import ACTIVE_MISSION
@@ -34,6 +36,10 @@ def main():
         fetch_kwargs["city"] = args.city
     if args.level is not None:
         fetch_kwargs["scan_level"] = args.level
+    if args.neighborhood:
+        fetch_kwargs["neighborhood"] = args.neighborhood
+    if args.min_tier:
+        fetch_kwargs["min_tier"] = args.min_tier
     fetch_fn = functools.partial(get_cold_contacts, **fetch_kwargs) if fetch_kwargs else get_cold_contacts
 
     agent = create_outreach_agent(

@@ -67,6 +67,7 @@ def save_contact(
     notes: str = "",
     scan_level: int | None = None,
     status: str = "candidate",
+    neighborhood: str = "",
 ) -> int:
     """
     Insert a new contact. Default status is 'candidate'.
@@ -104,11 +105,11 @@ def save_contact(
 
         cur.execute(
             """
-            INSERT INTO contacts (name, city, country, type, website, email, phone, notes, status, scan_level)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO contacts (name, city, country, type, website, email, phone, notes, status, scan_level, neighborhood)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (name, city, country, type or None, website or None, email or None, phone or None, notes or None, status, scan_level),
+            (name, city, country, type or None, website or None, email or None, phone or None, notes or None, status, scan_level, neighborhood or None),
         )
         contact_id = cur.fetchone()["id"]
         ensure_consent_log(contact_id, conn=conn)
@@ -133,8 +134,19 @@ def get_candidates(limit: int = 50, city: str | None = None) -> list[dict]:
         return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
-def get_cold_contacts(limit: int = 20, city: str | None = None, scan_level: int | None = None) -> list[dict]:
-    """Return contacts with status='cold' ready for first outreach."""
+def get_cold_contacts(
+    limit: int = 20,
+    city: str | None = None,
+    scan_level: int | None = None,
+    neighborhood: str | None = None,
+    min_tier: str | None = None,
+) -> list[dict]:
+    """Return contacts with status='cold' ready for first outreach.
+
+    min_tier: if set to 'normal', excludes contacts with tier='poor'.
+              if set to 'wealthy', returns only wealthy contacts.
+              NULL tier contacts are included unless min_tier is set.
+    """
     with db() as conn:
         cur = conn.cursor()
         conditions = ["status = 'cold'", "id NOT IN (SELECT contact_id FROM approval_queue)"]
@@ -145,6 +157,13 @@ def get_cold_contacts(limit: int = 20, city: str | None = None, scan_level: int 
         if scan_level is not None:
             conditions.append("scan_level = %s")
             params.append(scan_level)
+        if neighborhood:
+            conditions.append("lower(neighborhood) = lower(%s)")
+            params.append(neighborhood)
+        if min_tier == "normal":
+            conditions.append("(neighborhood_tier IS NULL OR neighborhood_tier != 'poor')")
+        elif min_tier == "wealthy":
+            conditions.append("neighborhood_tier = 'wealthy'")
         params.append(limit)
         where = " AND ".join(conditions)
         cur.execute(

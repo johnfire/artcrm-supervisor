@@ -109,7 +109,7 @@ def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
-        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,nextPageToken",
+        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.addressComponents,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,nextPageToken",
     }
 
     results = []
@@ -140,6 +140,12 @@ def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]
             name = p.get("displayName", {}).get("text", "")
             if not name:
                 continue
+            neighborhood = ""
+            for comp in p.get("addressComponents", []):
+                types = comp.get("types", [])
+                if "sublocality_level_1" in types or "neighborhood" in types:
+                    neighborhood = comp.get("longText", "")
+                    break
             results.append({
                 "name": name,
                 "address": p.get("formattedAddress", ""),
@@ -148,6 +154,7 @@ def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]
                 "website": p.get("websiteUri", ""),
                 "phone": p.get("nationalPhoneNumber", "") or p.get("internationalPhoneNumber", ""),
                 "email": "",
+                "neighborhood": neighborhood,
             })
 
         if not page_token:
