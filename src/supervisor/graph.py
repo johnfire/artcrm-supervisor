@@ -3,12 +3,12 @@ LangGraph supervisor that orchestrates all agents in sequence.
 Uses a PostgreSQL checkpointer so runs survive crashes and can be resumed.
 
 Run order per invocation:
-  1. research_agent    — once per target in RESEARCH_TARGETS
-  2. enrichment_agent  — fills in missing website/email for existing contacts
-  3. scout_agent       — scores all candidates
-  4. outreach_agent    — drafts first-contact emails for cold contacts
-  5. followup_agent    — processes inbox + sends follow-ups to overdue contacts
+  1. research_agent    — once per target in RESEARCH_TARGETS (fetches website + email)
+  2. scout_agent       — scores all candidates
+  3. outreach_agent    — drafts first-contact emails for cold contacts
+  4. followup_agent    — processes inbox + sends follow-ups to overdue contacts
 
+Enrichment is not run automatically — invoke run_enrichment.py manually when needed.
 Each agent handles the "nothing to do" case gracefully, so the supervisor
 always runs to completion even when there is no work.
 """
@@ -21,7 +21,6 @@ from langgraph.graph import StateGraph, END
 from src.config import ACTIVE_MISSION, SCOUT_THRESHOLD, CHEAP_LLM
 from src.tools import (
     save_contact, get_candidates, get_cold_contacts, update_contact,
-    get_contacts_needing_enrichment, update_contact_details,
     check_compliance, queue_for_approval, log_interaction, get_contact_interactions, set_opt_out,
     set_visit_when_nearby, save_inbox_classification,
     get_overdue_contacts, get_unprocessed_inbox, mark_message_processed,
@@ -31,11 +30,10 @@ from src.tools import (
     get_city_market_context,
     web_search, geo_search, google_maps_search, fetch_page,
     read_inbox, mark_bad_email, record_warm_outcome,
-    get_llm,
+    get_llm, get_ignored_chains,
 )
 
 from artcrm_research_agent import create_research_agent
-from artcrm_enrichment_agent import create_enrichment_agent
 from artcrm_scout_agent import create_scout_agent
 from artcrm_outreach_agent import create_outreach_agent
 from artcrm_followup_agent import create_followup_agent
@@ -47,7 +45,6 @@ class SupervisorState(TypedDict):
     run_id: int
     research_jobs: list[dict]   # list of {city, country, level}
     research_summaries: list[str]
-    enrichment_summary: str
     scout_summary: str
     outreach_summary: str
     followup_summary: str
@@ -58,7 +55,6 @@ class SupervisorState(TypedDict):
 def _build_agents():
     """Instantiate all agents with concrete tools and the active mission."""
     research_llm = get_llm(CHEAP_LLM)
-    enrichment_llm = get_llm(CHEAP_LLM)
     scout_llm = get_llm(CHEAP_LLM)
     outreach_llm = get_llm("claude")
     followup_llm = get_llm("claude")
@@ -72,16 +68,7 @@ def _build_agents():
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
-    )
-
-    enrichment = create_enrichment_agent(
-        llm=enrichment_llm,
-        web_search=web_search,
-        fetch_page=fetch_page,
-        fetch_contacts=get_contacts_needing_enrichment,
-        update_contact=update_contact_details,
-        start_run=start_run,
-        finish_run=finish_run,
+        fetch_chains=get_ignored_chains,
     )
 
     scout = create_scout_agent(
@@ -124,7 +111,7 @@ def _build_agents():
         mission=ACTIVE_MISSION,
     )
 
-    return research, enrichment, scout, outreach, followup
+    return research, scout, outreach, followup
 
 
 def create_supervisor(checkpointer=None):
@@ -132,7 +119,7 @@ def create_supervisor(checkpointer=None):
     Build and compile the supervisor graph with a PostgreSQL checkpointer.
     Returns the compiled graph.
     """
-    research_agent, enrichment_agent, scout_agent, outreach_agent, followup_agent = _build_agents()
+    research_agent, scout_agent, outreach_agent, followup_agent = _build_agents()
 
     def init(state: SupervisorState) -> dict:
         jobs = state.get("research_jobs", [])
@@ -143,7 +130,6 @@ def create_supervisor(checkpointer=None):
             "run_id": run_id,
             "research_jobs": jobs,
             "research_summaries": [],
-            "enrichment_summary": "",
             "scout_summary": "",
             "outreach_summary": "",
             "followup_summary": "",
@@ -179,16 +165,6 @@ def create_supervisor(checkpointer=None):
                 logger.error(msg)
                 summaries.append(msg)
         return {"research_summaries": summaries}
-
-    def run_enrich(state: SupervisorState) -> dict:
-        try:
-            result = enrichment_agent.invoke({"limit": 50})
-            logger.info("enrichment: %s", result.get("summary", ""))
-            return {"enrichment_summary": result.get("summary", "")}
-        except Exception as e:
-            msg = f"enrichment failed: {e}"
-            logger.error(msg)
-            return {"enrichment_summary": msg, "errors": state["errors"] + [msg]}
 
     def run_scout(state: SupervisorState) -> dict:
         try:
@@ -232,7 +208,6 @@ def create_supervisor(checkpointer=None):
             lines.append(f"  {s}")
         lines += [
             "",
-            f"Enrich:   {state.get('enrichment_summary', '—')}",
             f"Scout:    {state.get('scout_summary', '—')}",
             f"Outreach: {state.get('outreach_summary', '—')}",
             f"Followup: {state.get('followup_summary', '—')}",
@@ -251,7 +226,6 @@ def create_supervisor(checkpointer=None):
     graph = StateGraph(SupervisorState)
     graph.add_node("init", init)
     graph.add_node("run_research", run_research)
-    graph.add_node("run_enrich", run_enrich)
     graph.add_node("run_scout", run_scout)
     graph.add_node("run_outreach", run_outreach)
     graph.add_node("run_followup", run_followup)
@@ -259,8 +233,7 @@ def create_supervisor(checkpointer=None):
 
     graph.set_entry_point("init")
     graph.add_edge("init", "run_research")
-    graph.add_edge("run_research", "run_enrich")
-    graph.add_edge("run_enrich", "run_scout")
+    graph.add_edge("run_research", "run_scout")
     graph.add_edge("run_scout", "run_outreach")
     graph.add_edge("run_outreach", "run_followup")
     graph.add_edge("run_followup", "generate_report")

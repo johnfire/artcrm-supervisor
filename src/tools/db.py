@@ -2,6 +2,7 @@
 All database operations used as injected tools in the agents.
 Every function uses parameterised queries — no string interpolation on user data.
 """
+import difflib
 import json
 import logging
 from datetime import date, datetime, timezone
@@ -23,6 +24,37 @@ def _serialize_row(row: dict) -> dict:
 # Contacts
 # ---------------------------------------------------------------------------
 
+def _load_ignored_chains(cur) -> list[str]:
+    cur.execute("SELECT name FROM ignored_chains")
+    return [r["name"] for r in cur.fetchall()]
+
+
+def get_ignored_chains() -> list[str]:
+    """Return all chain names from the ignored_chains table."""
+    with db() as conn:
+        cur = conn.cursor()
+        return _load_ignored_chains(cur)
+
+
+def _normalize_for_chain_match(name: str) -> str:
+    import re
+    return re.sub(r"[\s\-_/&'\".,;:!?]+", " ", name.lower()).strip()
+
+
+def _is_ignored_chain(name: str, chains: list[str], threshold: float = 0.90) -> bool:
+    n = _normalize_for_chain_match(name)
+    for chain in chains:
+        c = _normalize_for_chain_match(chain)
+        # Prefix match: catches "Brand - Branch Name" patterns
+        if n == c or n.startswith(c + " "):
+            return True
+        # Fuzzy match: catches typos / punctuation variants of exact names
+        sm = difflib.SequenceMatcher(None, n, c)
+        if sm.quick_ratio() >= threshold and sm.ratio() >= threshold:
+            return True
+    return False
+
+
 def save_contact(
     name: str,
     city: str,
@@ -34,15 +66,33 @@ def save_contact(
     phone: str = "",
     notes: str = "",
     scan_level: int | None = None,
+    status: str = "candidate",
 ) -> int:
     """
-    Insert a new contact with status='candidate'.
+    Insert a new contact. Default status is 'candidate'.
     Deduplication key is (name, city) — returns existing contact's id if duplicate.
     Returns contact id, or 0 on error.
     """
     with db() as conn:
         cur = conn.cursor()
-        # Check for duplicate
+        # Check ignored chains first
+        chains = _load_ignored_chains(cur)
+        if _is_ignored_chain(name, chains):
+            logger.info("save_contact: ignored chain skipped — %s / %s", name, city)
+            return 0
+
+        # Email dedup — if we already have an active contact with this email, skip
+        if email:
+            cur.execute(
+                "SELECT id FROM contacts WHERE lower(email) = lower(%s) AND deleted_at IS NULL",
+                (email,),
+            )
+            existing = cur.fetchone()
+            if existing:
+                logger.info("save_contact: email duplicate skipped — %s (%s)", name, email)
+                return existing["id"]
+
+        # Name+city dedup
         cur.execute(
             "SELECT id FROM contacts WHERE lower(name) = lower(%s) AND lower(city) = lower(%s)",
             (name, city),
@@ -55,10 +105,10 @@ def save_contact(
         cur.execute(
             """
             INSERT INTO contacts (name, city, country, type, website, email, phone, notes, status, scan_level)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'candidate', %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (name, city, country, type or None, website or None, email or None, phone or None, notes or None, scan_level),
+            (name, city, country, type or None, website or None, email or None, phone or None, notes or None, status, scan_level),
         )
         contact_id = cur.fetchone()["id"]
         ensure_consent_log(contact_id, conn=conn)
@@ -83,20 +133,24 @@ def get_candidates(limit: int = 50, city: str | None = None) -> list[dict]:
         return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
-def get_cold_contacts(limit: int = 20, city: str | None = None) -> list[dict]:
+def get_cold_contacts(limit: int = 20, city: str | None = None, scan_level: int | None = None) -> list[dict]:
     """Return contacts with status='cold' ready for first outreach."""
     with db() as conn:
         cur = conn.cursor()
+        conditions = ["status = 'cold'", "id NOT IN (SELECT contact_id FROM approval_queue)"]
+        params: list = []
         if city:
-            cur.execute(
-                "SELECT * FROM contacts WHERE status = 'cold' AND lower(city) = lower(%s) ORDER BY created_at ASC LIMIT %s",
-                (city, limit),
-            )
-        else:
-            cur.execute(
-                "SELECT * FROM contacts WHERE status = 'cold' ORDER BY created_at ASC LIMIT %s",
-                (limit,),
-            )
+            conditions.append("lower(city) = lower(%s)")
+            params.append(city)
+        if scan_level is not None:
+            conditions.append("scan_level = %s")
+            params.append(scan_level)
+        params.append(limit)
+        where = " AND ".join(conditions)
+        cur.execute(
+            f"SELECT * FROM contacts WHERE {where} ORDER BY fit_score DESC NULLS LAST, created_at ASC LIMIT %s",
+            params,
+        )
         return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
@@ -133,6 +187,7 @@ def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) ->
                 WHERE (email IS NULL OR email = '')
                   AND lower(city) = lower(%s)
                   AND deleted_at IS NULL
+                  AND status != 'cannot_find_more_data'
                 ORDER BY enriched_at ASC NULLS FIRST, created_at ASC
                 LIMIT %s
                 """,
@@ -144,6 +199,7 @@ def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) ->
                 SELECT * FROM contacts
                 WHERE (email IS NULL OR email = '')
                   AND deleted_at IS NULL
+                  AND status != 'cannot_find_more_data'
                 ORDER BY enriched_at ASC NULLS FIRST, created_at ASC
                 LIMIT %s
                 """,
@@ -153,9 +209,9 @@ def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) ->
 
 
 def update_contact_details(contact_id: int, **kwargs) -> None:
-    """Update arbitrary contact fields (website, email, phone). Ignores unknown keys.
+    """Update arbitrary contact fields (website, email, phone, status). Ignores unknown keys.
     Always stamps enriched_at to mark this contact as processed by the enrichment agent."""
-    allowed = {"website", "email", "phone"}
+    allowed = {"website", "email", "phone", "status"}
     fields = {k: v for k, v in kwargs.items() if k in allowed and v}
     set_clause = ", ".join(f"{k} = %s" for k in fields)
     if set_clause:

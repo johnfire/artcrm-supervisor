@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--limit", type=int, default=50)
     args = parser.parse_args()
 
+    from src.config import CHEAP_LLM
     from src.tools import (
         get_contacts_needing_enrichment, update_contact_details,
         web_search, fetch_page, start_run, finish_run, get_llm,
@@ -29,7 +30,7 @@ def main():
     fetch_fn = functools.partial(get_contacts_needing_enrichment, city=args.city) if args.city else get_contacts_needing_enrichment
 
     agent = create_enrichment_agent(
-        llm=get_llm("deepseek"),
+        llm=get_llm(CHEAP_LLM),
         web_search=web_search,
         fetch_page=fetch_page,
         fetch_contacts=fetch_fn,

@@ -24,6 +24,7 @@ def main():
         save_contact, start_run, finish_run,
         record_scan_result, can_run_level,
         web_search, google_maps_search, fetch_page, get_llm,
+        get_ignored_chains,
     )
     from src.supervisor.targets import SCAN_LEVELS
     from artcrm_research_agent import create_research_agent
@@ -45,6 +46,7 @@ def main():
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
+        fetch_chains=get_ignored_chains,
     )
 
     result = agent.invoke({
