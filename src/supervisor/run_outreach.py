@@ -17,6 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run outreach agent for a city or globally")
     parser.add_argument("--city", default=None, help="Filter outreach to a specific city")
     parser.add_argument("--limit", type=int, default=50)
+    parser.add_argument("--level", type=int, default=None, help="Filter to a specific scan level (1=galleries/cafes/coworking)")
     args = parser.parse_args()
 
     from src.config import ACTIVE_MISSION
@@ -28,7 +29,12 @@ def main():
     from artcrm_outreach_agent import create_outreach_agent
     import functools
 
-    fetch_fn = functools.partial(get_cold_contacts, city=args.city) if args.city else get_cold_contacts
+    fetch_kwargs: dict = {}
+    if args.city:
+        fetch_kwargs["city"] = args.city
+    if args.level is not None:
+        fetch_kwargs["scan_level"] = args.level
+    fetch_fn = functools.partial(get_cold_contacts, **fetch_kwargs) if fetch_kwargs else get_cold_contacts
 
     agent = create_outreach_agent(
         llm=get_llm("claude"),

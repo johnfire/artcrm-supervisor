@@ -18,6 +18,9 @@ GOOGLE_SEARCH_API_KEY: str = os.getenv("GOOGLE_SEARCH_API_KEY", "")
 GOOGLE_SEARCH_CX: str = os.getenv("GOOGLE_SEARCH_CX", "")
 BRAVE_SEARCH_API_KEY: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
 
+# --- Bright Data ---
+BRIGHTDATA_API_TOKEN: str = os.getenv("BRIGHTDATA_API_TOKEN", "")
+
 # --- Proton Bridge (IMAP + SMTP) ---
 PROTON_IMAP_HOST: str = os.getenv("PROTON_IMAP_HOST", "127.0.0.1")
 PROTON_IMAP_PORT: int = int(os.getenv("PROTON_IMAP_PORT", "1143"))

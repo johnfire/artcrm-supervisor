@@ -1,7 +1,7 @@
 # Plein Air Painting — Strategy and Legal Framework
 
-*Christopher Rehm — Bavaria*
-*Last updated: April 2026*
+_Christopher Rehm — Bavaria_
+_Last updated: May 2026_
 
 ---
 
@@ -45,7 +45,7 @@ German street and public-space law distinguishes between two categories:
   (walking, standing, looking, communicating). No permit required.
 - **Sondernutzung** — special use beyond normal traffic purposes
   (selling goods, setting up stands, commercial activity). Requires a
-  *Sondernutzungserlaubnis* from the local authority.
+  _Sondernutzungserlaubnis_ from the local authority.
 
 ### Where Plein Air Painting Sits
 
@@ -53,7 +53,7 @@ Standing at an easel and painting is a gray area, but the gray favors the
 artist. Key points:
 
 - The Bundesverwaltungsgericht has ruled that street art is protected under
-  *Kunstfreiheit* (Art. 5 Abs. 3 GG).
+  _Kunstfreiheit_ (Art. 5 Abs. 3 GG).
 - For regular artistic activity, even where a permit is technically required,
   the authorities' discretion is reduced essentially to zero — they have to
   grant it.
@@ -65,7 +65,7 @@ artist. Key points:
 ### Where the Line Gets Crossed
 
 The moment you do any of the following, the activity becomes
-*Sondernutzung* and requires a permit:
+_Sondernutzung_ and requires a permit:
 
 - Setting up a stand or table to display works for sale
 - Posting prices on works
@@ -139,8 +139,10 @@ involved) the relationship-building that comes with that.
 
 ### Frequency and Consistency
 
-Once or twice a week during good weather, ideally on a regular schedule
-(e.g. Wednesday afternoons in Augsburg, Saturday mornings in Landsberg).
+Target: **3 sessions per week** during good weather. Two confirmed locations
+already in rotation: Augsburg (park behind Rotes Tor) and Landsberg am Lech
+(park). Ideally on a regular schedule (e.g. Wednesday afternoons in Augsburg,
+Saturday mornings in Landsberg) to build recognition with the same foot traffic.
 
 Consistency matters more than volume. The goal is for the same regular
 foot-traffic — locals walking to work, retirees on their daily routes,
@@ -156,21 +158,21 @@ steady, predictable presence does.
 
 ### Augsburg
 
-| Location | Why | Notes |
-|---|---|---|
-| Rathausplatz | High foot traffic, iconic backdrop | Central, very visible |
-| Maximilianstraße | Tourist + local mix, architectural views | Wide street, easy to set up without blocking |
-| Lech canals (Altstadt) | Beautiful watercolour subjects | Quieter, better for actual painting focus |
-| Near Schaezlerpalais | Art-oriented foot traffic | People going to/from museums are pre-qualified |
-| Fuggerei area | Historic, photogenic | Strong Bavarian-character subject matter |
+| Location               | Why                                      | Notes                                          |
+| ---------------------- | ---------------------------------------- | ---------------------------------------------- |
+| Rathausplatz           | High foot traffic, iconic backdrop       | Central, very visible                          |
+| Maximilianstraße       | Tourist + local mix, architectural views | Wide street, easy to set up without blocking   |
+| Lech canals (Altstadt) | Beautiful watercolour subjects           | Quieter, better for actual painting focus      |
+| Near Schaezlerpalais   | Art-oriented foot traffic                | People going to/from museums are pre-qualified |
+| Fuggerei area          | Historic, photogenic                     | Strong Bavarian-character subject matter       |
 
 ### Landsberg am Lech
 
-| Location | Why | Notes |
-|---|---|---|
-| Hauptplatz | Iconic Bavarian square, the central image of the town | Highest visibility |
-| Lech weir | Strong watercolour subject (water, architecture) | Quieter, good for serious work |
-| Views from across the river | Best Altstadt panorama | Tourist-favored vantage points |
+| Location                    | Why                                                   | Notes                          |
+| --------------------------- | ----------------------------------------------------- | ------------------------------ |
+| Hauptplatz                  | Iconic Bavarian square, the central image of the town | Highest visibility             |
+| Lech weir                   | Strong watercolour subject (water, architecture)      | Quieter, good for serious work |
+| Views from across the river | Best Altstadt panorama                                | Tourist-favored vantage points |
 
 ### Countryside (Lechfeld and Approach to the Alps)
 
@@ -181,17 +183,17 @@ Instagram content.
 
 ### Munich (If Pursuing the Permit System)
 
-| Location | Why | Notes |
-|---|---|---|
-| Marienplatz area | Highest foot traffic in southern Germany | Permit required, but the audience density is enormous |
-| Viktualienmarkt periphery | Art-buying demographic | Check permit boundaries — the market itself has its own rules |
-| Sendlinger Tor area | Less crowded, still central | Within the permit zone |
+| Location                  | Why                                      | Notes                                                         |
+| ------------------------- | ---------------------------------------- | ------------------------------------------------------------- |
+| Marienplatz area          | Highest foot traffic in southern Germany | Permit required, but the audience density is enormous         |
+| Viktualienmarkt periphery | Art-buying demographic                   | Check permit boundaries — the market itself has its own rules |
+| Sendlinger Tor area       | Less crowded, still central              | Within the permit zone                                        |
 
 ---
 
 ## What This is Not
 
-This strategy is deliberately *not* about street selling. It is not about
+This strategy is deliberately _not_ about street selling. It is not about
 turning the act of painting into a transaction. It is about being visible,
 being present, and being recognized as a working artist in a specific place
 over time.
@@ -211,13 +213,21 @@ purpose: building the reputation that makes everything else easier.
       air painting as Gemeingebrauch (no sales)
 - [ ] Design and print the small visibility sign (name, URL, Instagram, QR code)
 - [ ] Order a fresh batch of business cards if needed
-- [ ] Set a regular weekly painting day and location in Augsburg
+- [x] Set a regular weekly painting day and location in Augsburg
 
 **Short-term (next 1-3 months)**
 
-- [ ] Establish a second regular location in Landsberg am Lech
+- [x] Establish a second regular location in Landsberg am Lech
+- [ ] Reach 3 sessions per week consistently
 - [ ] Document each session for Instagram (process, work in progress, finished piece in situ)
 - [ ] Track which locations attract which kinds of interest, refine accordingly
+
+**Session log**
+
+| Date       | Location                         | Cards handed out | Notes                       |
+| ---------- | -------------------------------- | ---------------- | --------------------------- |
+| 2026-04-25 | Augsburg — park behind Rotes Tor | 1–2              | Website viewer hits went up |
+| 2026-04-28 | Landsberg am Lech — park         | 1–2              | Website viewer hits went up |
 
 **Medium-term (3-6 months)**
 
