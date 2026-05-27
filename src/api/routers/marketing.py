@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
+from src.api.auth import require_login
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -11,7 +12,7 @@ from src.tools.marketing_db import (
 )
 from src.tools.memory import capture_thought, search_artcrm_thoughts
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_login)])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
 _md = mistune.create_markdown(escape=False)
 _REPO_ROOT = Path(__file__).parent.parent.parent.parent

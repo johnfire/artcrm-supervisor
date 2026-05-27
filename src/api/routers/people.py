@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
+from src.api.auth import require_login
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
 from src.db.connection import db
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_login)])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
 
 

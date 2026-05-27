@@ -2,16 +2,23 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
+import os
 
 from src.api.routers import approval, activity, contacts, people, research, inbox, marketing, drafts
+from src.api import auth
 
 app = FastAPI(title="ArtCRM Supervisor", docs_url=None, redoc_url=None)
+
+SESSION_SECRET = os.environ.get("SESSION_SECRET", "change-me-in-production")
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=False)
 
 UI_DIR = Path(__file__).parent.parent / "ui"
 app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(UI_DIR / "templates"))
 
+app.include_router(auth.router)
 app.include_router(approval.router)
 app.include_router(activity.router)
 app.include_router(contacts.router)

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Request, Query, Form
+from fastapi import APIRouter, Depends, Request, Query, Form
+from src.api.auth import require_login
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -6,7 +7,7 @@ from urllib.parse import quote_plus
 from typing import Optional
 from src.db.connection import db
 
-router = APIRouter(prefix="/contacts", tags=["contacts"])
+router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_login)])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
 templates.env.filters["urlenc"] = quote_plus
 

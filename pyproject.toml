@@ -10,6 +10,7 @@ dependencies = [
     "jinja2>=3.1.4",
     "python-multipart>=0.0.12",
     "httpx>=0.28.0",
+    "itsdangerous>=2.2.0",
     "mcp[cli]>=1.0.0",
     "mistune>=3.0.0",
     "artcrm-research-agent",

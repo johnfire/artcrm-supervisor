@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Depends, Request, Query
+from src.api.auth import require_login
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from src.db.connection import db
 
-router = APIRouter(prefix="/inbox", tags=["inbox"])
+router = APIRouter(prefix="/inbox", tags=["inbox"], dependencies=[Depends(require_login)])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
 
 CLASSIFICATIONS = ("interested", "warm", "not_interested", "not_possible", "opt_out", "other", "skipped")
