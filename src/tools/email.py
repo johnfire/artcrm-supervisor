@@ -1,6 +1,6 @@
 """
-Email tools: SMTP sending and IMAP inbox reading via Proton Bridge.
-Proton Bridge runs locally and exposes standard IMAP/SMTP ports.
+Email tools: SMTP sending via Postfix and IMAP inbox reading via Dovecot.
+Connects to localhost mail server on the VPS.
 """
 import email as email_lib
 import imaplib
@@ -43,9 +43,10 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
     try:
         with smtplib.SMTP(PROTON_SMTP_HOST, PROTON_SMTP_PORT) as smtp:
             smtp.ehlo()
-            smtp.starttls()
-            smtp.login(PROTON_EMAIL, PROTON_PASSWORD)
-            smtp.sendmail(PROTON_EMAIL, [to_email], msg.as_string())
+            if PROTON_PASSWORD:
+                smtp.starttls()
+                smtp.login(PROTON_EMAIL, PROTON_PASSWORD)
+            smtp.sendmail(PROTON_FROM_EMAIL, [to_email], msg.as_string())
         logger.info("send_email: sent to %s — %s", to_email, subject)
         return True
     except Exception as e:
@@ -66,7 +67,10 @@ def read_inbox(limit: int = 50, since_days: int = 14) -> list[dict]:
     messages = []
     try:
         with imaplib.IMAP4(PROTON_IMAP_HOST, PROTON_IMAP_PORT) as imap:
-            imap.starttls()
+            try:
+                imap.starttls()
+            except Exception:
+                pass  # localhost Dovecot may not require TLS
             imap.login(PROTON_EMAIL, PROTON_PASSWORD)
             imap.select("INBOX")
 

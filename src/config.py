@@ -21,11 +21,13 @@ BRAVE_SEARCH_API_KEY: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
 # --- Bright Data ---
 BRIGHTDATA_API_TOKEN: str = os.getenv("BRIGHTDATA_API_TOKEN", "")
 
-# --- Proton Bridge (IMAP + SMTP) ---
+# --- Mail server (Postfix SMTP + Dovecot IMAP) ---
+# Defaults point to localhost Postfix/Dovecot on the VPS.
+# Set PROTON_SMTP_PASSWORD empty to skip SMTP auth (trusted localhost relay).
 PROTON_IMAP_HOST: str = os.getenv("PROTON_IMAP_HOST", "127.0.0.1")
-PROTON_IMAP_PORT: int = int(os.getenv("PROTON_IMAP_PORT", "1143"))
+PROTON_IMAP_PORT: int = int(os.getenv("PROTON_IMAP_PORT", "143"))
 PROTON_SMTP_HOST: str = os.getenv("PROTON_SMTP_HOST", "127.0.0.1")
-PROTON_SMTP_PORT: int = int(os.getenv("PROTON_SMTP_PORT", "1025"))
+PROTON_SMTP_PORT: int = int(os.getenv("PROTON_SMTP_PORT", "25"))
 PROTON_EMAIL: str = os.getenv("PROTON_EMAIL", "")
 PROTON_PASSWORD: str = os.getenv("PROTON_PASSWORD", "")
 # From address for outgoing emails — can be an alias. Defaults to PROTON_EMAIL.
