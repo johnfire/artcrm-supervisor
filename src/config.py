@@ -49,6 +49,9 @@ EMAIL_ENABLED: bool = os.getenv("EMAIL_ENABLED", "true").lower() == "true"
 OPEN_BRAIN_URL: str = os.getenv("OPEN_BRAIN_URL", "")
 OPEN_BRAIN_TOKEN: str = os.getenv("OPEN_BRAIN_TOKEN", "")
 
+# --- Mobile API ---
+JWT_SECRET: str = os.getenv("JWT_SECRET", "change-me-in-production")
+
 # --- LLM backend for cheap/high-volume tasks (research, enrichment, scouting) ---
 # Options: deepseek-chat, claude-haiku
 CHEAP_LLM: str = os.getenv("CHEAP_LLM", "deepseek-chat")
