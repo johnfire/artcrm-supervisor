@@ -473,7 +473,22 @@ def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) ->
             """,
             (contact_id, run_id or None, subject, body),
         )
-        return cur.fetchone()["id"]
+        queue_id = cur.fetchone()["id"]
+    try:
+        from src.api.push import send_push_to_all
+        with db() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT name FROM contacts WHERE id = %s", (contact_id,))
+            row = cur.fetchone()
+            contact_name = row["name"] if row else str(contact_id)
+        send_push_to_all(
+            title="New approval waiting",
+            body=f"{contact_name} — {subject}",
+            data={"screen": "approvals"},
+        )
+    except Exception:
+        pass
+    return queue_id
 
 
 # ---------------------------------------------------------------------------
