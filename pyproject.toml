@@ -13,6 +13,7 @@ dependencies = [
     "itsdangerous>=2.2.0",
     "mcp[cli]>=1.0.0",
     "mistune>=3.0.0",
+    "PyJWT>=2.8.0",
     "artcrm-research-agent",
     "artcrm-enrichment-agent",
     "artcrm-scout-agent",
