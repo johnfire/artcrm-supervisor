@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
 import os
 
-from src.api.routers import approval, activity, contacts, people, research, inbox, marketing, drafts, api_auth, api_push, api_approvals, api_inbox, api_contacts
+from src.api.routers import approval, activity, contacts, people, research, inbox, marketing, drafts, api_auth, api_push, api_approvals, api_inbox, api_contacts, api_activity
 from src.api import auth
 
 app = FastAPI(title="ArtCRM Supervisor", docs_url=None, redoc_url=None)
@@ -31,6 +31,7 @@ app.include_router(api_push.router)
 app.include_router(api_approvals.router)
 app.include_router(api_inbox.router)
 app.include_router(api_contacts.router)
+app.include_router(api_activity.router)
 app.include_router(approval.router)
 app.include_router(activity.router)
 app.include_router(contacts.router)
