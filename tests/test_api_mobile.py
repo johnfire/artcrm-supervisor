@@ -68,3 +68,20 @@ def test_push_register_success():
             headers={"Authorization": f"Bearer {token}"},
         )
     assert resp.status_code == 204
+
+
+def test_inbox_list_requires_auth():
+    resp = client.get("/api/inbox")
+    assert resp.status_code in (401, 403)
+
+
+def test_inbox_list_returns_list():
+    token = _get_token()
+    mock_conn = MagicMock()
+    mock_conn.__enter__ = lambda s: s
+    mock_conn.__exit__ = MagicMock(return_value=False)
+    mock_conn.cursor.return_value.fetchall.return_value = []
+    with patch("src.api.routers.api_inbox.db", return_value=mock_conn):
+        resp = client.get("/api/inbox", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
