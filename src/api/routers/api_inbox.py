@@ -46,7 +46,7 @@ def classify(message_id: int, body: ClassifyBody, role: str = Depends(require_jw
     if role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     if body.classification not in VALID_CLASSIFICATIONS:
-        raise HTTPException(status_code=422, detail=f"Invalid classification. Valid: {VALID_CLASSIFICATIONS}")
+        raise HTTPException(status_code=422, detail=f"Invalid classification. Valid: {sorted(VALID_CLASSIFICATIONS)}")
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
