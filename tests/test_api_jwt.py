@@ -2,7 +2,7 @@ import pytest
 from src.api.jwt_auth import create_token, decode_token, ALGORITHM
 import jwt
 
-SECRET = "test-secret"
+SECRET = "test-secret-long-enough-for-hs256-algorithm"
 
 
 def test_create_token_returns_string():

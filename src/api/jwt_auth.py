@@ -22,7 +22,10 @@ def create_token(role: str, secret: str = JWT_SECRET) -> str:
 
 def decode_token(token: str, secret: str = JWT_SECRET) -> str:
     payload = jwt.decode(token, secret, algorithms=[ALGORITHM])
-    return payload["sub"]
+    role = payload.get("sub")
+    if not role:
+        raise jwt.InvalidTokenError("Missing sub claim")
+    return role
 
 
 def require_jwt(credentials: HTTPAuthorizationCredentials = Security(_bearer)) -> str:
