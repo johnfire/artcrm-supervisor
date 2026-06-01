@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
 import os
@@ -13,6 +14,12 @@ app = FastAPI(title="ArtCRM Supervisor", docs_url=None, redoc_url=None)
 
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "change-me-in-production")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=False)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 UI_DIR = Path(__file__).parent.parent / "ui"
 app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
