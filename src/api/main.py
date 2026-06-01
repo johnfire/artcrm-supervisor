@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
 import os
 
-from src.api.routers import approval, activity, contacts, people, research, inbox, marketing, drafts, api_auth
+from src.api.routers import approval, activity, contacts, people, research, inbox, marketing, drafts, api_auth, api_push
 from src.api import auth
 
 app = FastAPI(title="ArtCRM Supervisor", docs_url=None, redoc_url=None)
@@ -27,6 +27,7 @@ templates = Jinja2Templates(directory=str(UI_DIR / "templates"))
 
 app.include_router(auth.router)
 app.include_router(api_auth.router)
+app.include_router(api_push.router)
 app.include_router(approval.router)
 app.include_router(activity.router)
 app.include_router(contacts.router)

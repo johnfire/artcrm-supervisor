@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from src.api.main import app
 
 client = TestClient(app)
@@ -26,3 +26,28 @@ def test_auth_token_spectator():
         resp = client.post("/api/auth/token", json={"password": "specpass"})
     assert resp.status_code == 200
     assert resp.json()["role"] == "spectator"
+
+
+def _get_token(password="testpass") -> str:
+    with patch.dict("os.environ", {"ADMIN_PASSWORD": password}):
+        resp = client.post("/api/auth/token", json={"password": password})
+    return resp.json()["token"]
+
+
+def test_push_register_requires_auth():
+    resp = client.post("/api/push/register", json={"token": "ExponentPushToken[abc]"})
+    assert resp.status_code in (401, 403)
+
+
+def test_push_register_success():
+    token = _get_token()
+    mock_conn = MagicMock()
+    mock_conn.__enter__ = lambda s: s
+    mock_conn.__exit__ = MagicMock(return_value=False)
+    with patch("src.api.routers.api_push.db", return_value=mock_conn):
+        resp = client.post(
+            "/api/push/register",
+            json={"token": "ExponentPushToken[testtoken123]"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    assert resp.status_code == 204
