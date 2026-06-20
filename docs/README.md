@@ -279,7 +279,7 @@ artcrm-supervisor/
     config.py               Active mission + env config
     db/
       connection.py         db() context manager
-      migrations/           SQL migration files (001–004)
+      migrations/           SQL migration files (001–017; incl. marketing, mobile/push tables)
     tools/
       db.py                 All database operations
       search.py             Google Maps + DuckDuckGo + page fetching

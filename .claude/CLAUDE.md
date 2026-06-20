@@ -49,3 +49,7 @@ Read only the doc relevant to the current task.
 | `docs/markets-strategy.md`   | Strategy           | Bavarian art markets strategy                                         |
 | `docs/plein-air-strategy.md` | Strategy           | plein air painting strategy and legal framework                       |
 | `docs/open-brain-guide.md`   | Open Brain         | connecting to Open Brain from Python agents                           |
+| `docs/RUNBOOK.md`            | Operations         | detailed end-to-end setup, operation, and testing runbook            |
+| `docs/dns-records-to-add.md` | Deployment         | DNS records to add in Ionos for the VPS deployment                   |
+| `docs/vps-deployment-plan.md` | Deployment        | plan for deploying the supervisor to the VPS (draft)                 |
+| `docs/vps-email-server-plan.md` | Deployment      | plan for the Postfix + Dovecot VPS email server (draft)             |

@@ -1,0 +1,228 @@
+<h2>Approvals — Rejection flow</h2>
+<p class="subtitle">
+  Tapping Reject slides up a sheet asking for a reason before confirming
+</p>
+
+<div
+  style="
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin-top: 12px;
+  "
+>
+  <!-- Step 1: card -->
+  <div style="flex: 1; min-width: 160px; max-width: 220px">
+    <div class="label" style="color: #7c6fff; margin-bottom: 8px">
+      Step 1 — Draft card
+    </div>
+    <div
+      style="
+        background: #1a1a2e;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #7c6fff30;
+      "
+    >
+      <div style="background: #0f0f23; padding: 10px 12px">
+        <span style="color: #fff; font-size: 12px; font-weight: 600"
+          >☰ Approvals</span
+        >
+      </div>
+      <div style="padding: 10px">
+        <div style="background: #ffffff10; border-radius: 7px; padding: 10px">
+          <div style="color: #ccc; font-size: 10px; font-weight: 600">
+            Galerie Hofmann, München
+          </div>
+          <div style="color: #888; font-size: 9px; margin-top: 3px">
+            Re: Ausstellungsanfrage
+          </div>
+          <div
+            style="
+              color: #777;
+              font-size: 9px;
+              margin-top: 4px;
+              line-height: 1.4;
+            "
+          >
+            Sehr geehrte Damen und Her...
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 8px">
+            <div
+              style="
+                flex: 1;
+                background: #22c55e30;
+                color: #22c55e;
+                text-align: center;
+                font-size: 9px;
+                padding: 5px;
+                border-radius: 5px;
+                border: 1px solid #22c55e50;
+              "
+            >
+              ✓ Approve
+            </div>
+            <div
+              style="
+                flex: 1;
+                background: #ef444430;
+                color: #ef4444;
+                text-align: center;
+                font-size: 9px;
+                padding: 5px;
+                border-radius: 5px;
+                border: 1px solid #ef444450;
+              "
+            >
+              ✗ Reject
+            </div>
+            <div
+              style="
+                flex: 1;
+                background: #ffffff10;
+                color: #aaa;
+                text-align: center;
+                font-size: 9px;
+                padding: 5px;
+                border-radius: 5px;
+              "
+            >
+              ✏ Edit
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div
+    style="
+      display: flex;
+      align-items: center;
+      font-size: 20px;
+      color: #7c6fff;
+      padding-top: 60px;
+    "
+  >
+    →
+  </div>
+
+  <!-- Step 2: reject sheet -->
+  <div style="flex: 1; min-width: 160px; max-width: 220px">
+    <div class="label" style="color: #7c6fff; margin-bottom: 8px">
+      Step 2 — Reject sheet slides up
+    </div>
+    <div
+      style="
+        background: #1a1a2e;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #7c6fff30;
+        position: relative;
+      "
+    >
+      <!-- dimmed background -->
+      <div style="background: #0f0f23; padding: 10px 12px">
+        <span
+          style="color: #fff; font-size: 12px; font-weight: 600; opacity: 0.4"
+          >☰ Approvals</span
+        >
+      </div>
+      <div style="padding: 10px; opacity: 0.3">
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 7px;
+            padding: 10px;
+            height: 60px;
+          "
+        ></div>
+      </div>
+      <!-- bottom sheet -->
+      <div
+        style="
+          background: #1e1e3a;
+          border-top: 1px solid #7c6fff40;
+          padding: 14px;
+          border-radius: 12px 12px 0 0;
+        "
+      >
+        <div
+          style="
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 4px;
+          "
+        >
+          Reject draft
+        </div>
+        <div style="color: #888; font-size: 9px; margin-bottom: 10px">
+          Galerie Hofmann, München
+        </div>
+        <div style="color: #888; font-size: 9px; margin-bottom: 4px">
+          Reason (optional)
+        </div>
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            color: #555;
+            font-size: 9px;
+            margin-bottom: 10px;
+            min-height: 40px;
+          "
+        >
+          Too formal, needs a warmer tone...
+        </div>
+        <div style="display: flex; gap: 8px">
+          <div
+            style="
+              flex: 1;
+              background: #ffffff10;
+              color: #aaa;
+              text-align: center;
+              font-size: 10px;
+              padding: 8px;
+              border-radius: 6px;
+            "
+          >
+            Cancel
+          </div>
+          <div
+            style="
+              flex: 1;
+              background: #ef4444;
+              color: #fff;
+              text-align: center;
+              font-size: 10px;
+              padding: 8px;
+              border-radius: 6px;
+              font-weight: 600;
+            "
+          >
+            Confirm Reject
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div
+  style="
+    margin-top: 20px;
+    padding: 14px;
+    background: #7c6fff15;
+    border-radius: 8px;
+    border-left: 3px solid #7c6fff;
+  "
+>
+  <ul style="color: #ccc; font-size: 13px; margin: 0; padding-left: 18px">
+    <li>Reason is optional — you can reject without typing anything</li>
+    <li>Reason is saved to the contact's notes so the agent learns from it</li>
+    <li>No delete button on mobile — use the web UI for destructive actions</li>
+  </ul>
+</div>

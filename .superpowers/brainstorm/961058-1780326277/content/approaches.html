@@ -1,0 +1,110 @@
+<h2>Three approaches to building the app</h2>
+<p class="subtitle">
+  Pick the one that fits where you are now and where you're going
+</p>
+
+<div class="options">
+  <div class="option" data-choice="expo" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Expo (Managed) — Recommended</h3>
+      <p>
+        React Native wrapped in Expo's toolchain. EAS Build produces the APK in
+        the cloud — no Android Studio needed locally. Expo handles push
+        notifications out of the box.
+      </p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Fastest to get an APK in your hands</li>
+            <li>Push notifications with 5 lines of code</li>
+            <li>OTA updates — ship JS fixes without resubmitting to store</li>
+            <li>Easy path to iOS later</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Slightly less control over native layer</li>
+            <li>EAS Build (free tier is slow ~15 min builds)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="bare" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Bare React Native + Expo modules</h3>
+      <p>
+        Full React Native CLI with Expo libraries bolted on. Same notifications
+        infrastructure, full native control.
+      </p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Full control over native code</li>
+            <li>Still gets Expo's notification library</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Need Android Studio to build locally</li>
+            <li>More setup and maintenance</li>
+            <li>Harder for future contributors to onboard</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="cli" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>React Native CLI only (no Expo)</h3>
+      <p>
+        Pure React Native. Maximum flexibility, standard for large commercial
+        teams.
+      </p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>No third-party build dependency</li>
+            <li>Full native access</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Most setup work</li>
+            <li>Push notifications require more manual config (Firebase)</li>
+            <li>Overkill for this stage</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div
+  class="section"
+  style="
+    margin-top: 24px;
+    padding: 16px;
+    background: #7c6fff15;
+    border-radius: 8px;
+    border-left: 3px solid #7c6fff;
+  "
+>
+  <p class="label">Note on auth</p>
+  <p>
+    The web UI uses cookie-based sessions. The mobile app will need a
+    <strong>JWT token endpoint</strong> added to the FastAPI backend — standard
+    for mobile clients, small addition to the existing API.
+  </p>
+</div>

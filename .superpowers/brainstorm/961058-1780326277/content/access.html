@@ -1,0 +1,61 @@
+<h2>How should the app connect to the backend?</h2>
+<p class="subtitle">
+  The React Native app needs to reach the ArtCRM API on your VPS
+  (82.165.32.162:8084)
+</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Direct to VPS over the internet</h3>
+      <p>
+        App talks to <strong>https://crm.christopherrehm.de</strong> — HTTPS,
+        login required. Works anywhere, no VPN.
+      </p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Works on any network</li>
+            <li>Simple setup</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>API must be publicly exposed</li>
+            <li>Need SSL on the VPS</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>VPN only</h3>
+      <p>
+        App connects through a VPN (e.g. WireGuard on the VPS) — API stays
+        private.
+      </p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>API never exposed publicly</li>
+            <li>More secure</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Must enable VPN to use app</li>
+            <li>Extra setup</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

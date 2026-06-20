@@ -6,7 +6,7 @@
 
 ## Summary
 
-PostgreSQL, `artcrm` database. Shared with `theo-hits-the-road` (the original CRM) — supervisor adds 4 tables on top of the existing schema. Raw SQL migrations in `src/db/migrations/`. No ORM.
+PostgreSQL, `artcrm` database. Shared with `theo-hits-the-road` (the original CRM) — supervisor adds its own tables on top of the existing schema (see below), including marketing, mobile/push, and outreach-outcome tables added in later migrations. Raw SQL migrations in `src/db/migrations/`. No ORM.
 
 ## Tables
 
@@ -28,6 +28,9 @@ PostgreSQL, `artcrm` database. Shared with `theo-hits-the-road` (the original CR
 | `approval_queue` | Email drafts awaiting review — contact_id, subject, body, status                         |
 | `inbox_messages` | Inbox messages read by follow-up agent — message_id, from, subject, body, classification |
 | `ignored_chains` | Business names that should never be saved as contacts (chains, franchises)               |
+| `outreach_outcomes` | Per-contact outreach result tracking (migrations 011–012)                             |
+| `marketing_strategies`, `marketing_research`, `marketing_digests` | Marketing agent tables — strategies, research, digests (migration 010) |
+| `push_tokens`    | Mobile push notification device tokens (migration 017)                                   |
 
 ## Contact Status Flow
 
@@ -49,7 +52,7 @@ on_hold     — paused (approve flow also works from this status)
 
 ## Migrations
 
-Location: `src/db/migrations/` — numbered SQL files (001–004+).
+Location: `src/db/migrations/` — numbered SQL files (001–017, through `017_push_tokens`).
 
 ```bash
 uv run python scripts/migrate.py

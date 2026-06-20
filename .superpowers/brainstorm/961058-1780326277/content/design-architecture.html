@@ -1,0 +1,308 @@
+<h2>Design: Architecture</h2>
+<p class="subtitle">How all the pieces fit together</p>
+
+<div class="section">
+  <div style="display: flex; gap: 16px; flex-wrap: wrap">
+    <!-- Phone -->
+    <div
+      style="
+        flex: 1;
+        min-width: 200px;
+        background: #1a1a2e;
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid #7c6fff40;
+      "
+    >
+      <div class="label" style="color: #7c6fff">
+        React Native App (new repo)
+      </div>
+      <div
+        style="
+          margin-top: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        "
+      >
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ddd;
+          "
+        >
+          📱 Expo Managed Workflow
+        </div>
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ddd;
+          "
+        >
+          🗂 Drawer Navigation
+        </div>
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ddd;
+          "
+        >
+          6 Screens
+        </div>
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ddd;
+          "
+        >
+          🔔 Expo Push Notifications
+        </div>
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ddd;
+          "
+        >
+          🔐 JWT in SecureStore
+        </div>
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ddd;
+          "
+        >
+          📦 EAS Build → APK
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow -->
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        font-size: 24px;
+        color: #7c6fff;
+        padding: 0 4px;
+      "
+    >
+      ⇄
+    </div>
+
+    <!-- VPS -->
+    <div
+      style="
+        flex: 1;
+        min-width: 200px;
+        background: #1a1a2e;
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid #7c6fff40;
+      "
+    >
+      <div class="label" style="color: #7c6fff">VPS — FastAPI Backend</div>
+      <div
+        style="
+          margin-top: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        "
+      >
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ddd;
+          "
+        >
+          🌐 https://crm.christopherrehm.de
+        </div>
+        <div
+          style="
+            background: #7c6fff30;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ccc;
+          "
+        >
+          🆕 POST /api/auth/token (JWT)
+        </div>
+        <div
+          style="
+            background: #7c6fff30;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ccc;
+          "
+        >
+          🆕 POST /api/push/register
+        </div>
+        <div
+          style="
+            background: #7c6fff30;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ccc;
+          "
+        >
+          🆕 GET /api/* (mobile JSON endpoints)
+        </div>
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ddd;
+          "
+        >
+          Existing web UI untouched
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow -->
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        font-size: 24px;
+        color: #7c6fff;
+        padding: 0 4px;
+      "
+    >
+      ⇄
+    </div>
+
+    <!-- Expo Push -->
+    <div
+      style="
+        flex: 1;
+        min-width: 160px;
+        background: #1a1a2e;
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid #7c6fff40;
+      "
+    >
+      <div class="label" style="color: #7c6fff">Expo Push Service</div>
+      <div
+        style="
+          margin-top: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        "
+      >
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ddd;
+          "
+        >
+          Free for personal use
+        </div>
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ddd;
+          "
+        >
+          Triggers: new approval, inbox reply
+        </div>
+        <div
+          style="
+            background: #ffffff10;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            color: #ddd;
+          "
+        >
+          No Firebase setup needed
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px">
+  <h3>What's new vs what's reused</h3>
+  <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px">
+    <div style="flex: 1; min-width: 200px">
+      <div class="label">New (mobile app repo)</div>
+      <ul style="margin-top: 8px; color: #ccc; font-size: 13px">
+        <li>React Native screens for all 6 sections</li>
+        <li>Drawer navigation shell</li>
+        <li>JWT auth flow (login screen)</li>
+        <li>Push notification registration</li>
+        <li>API client layer</li>
+      </ul>
+    </div>
+    <div style="flex: 1; min-width: 200px">
+      <div class="label">New (backend additions)</div>
+      <ul style="margin-top: 8px; color: #ccc; font-size: 13px">
+        <li>JWT token endpoint</li>
+        <li>Push token registration endpoint</li>
+        <li>JSON API routes (mirrors web routes)</li>
+        <li>Push notification trigger on new approval/inbox</li>
+        <li>SSL cert for crm.christopherrehm.de</li>
+      </ul>
+    </div>
+    <div style="flex: 1; min-width: 200px">
+      <div class="label">Untouched</div>
+      <ul style="margin-top: 8px; color: #ccc; font-size: 13px">
+        <li>All existing web UI templates</li>
+        <li>All agent logic</li>
+        <li>Database schema</li>
+        <li>Existing API routes</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div
+  style="
+    margin-top: 20px;
+    padding: 14px;
+    background: #7c6fff15;
+    border-radius: 8px;
+    border-left: 3px solid #7c6fff;
+  "
+>
+  <p style="color: #ccc; font-size: 13px">
+    Does this architecture look right? The key principle: the mobile app is a
+    thin client — all logic stays on the VPS. The app just presents data and
+    sends actions back.
+  </p>
+</div>

@@ -1,0 +1,170 @@
+<h2>How should the app navigate between screens?</h2>
+<p class="subtitle">This shapes the whole feel of the app</p>
+
+<div class="options">
+  <div class="option" data-choice="bottomtabs" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Bottom Tab Bar</h3>
+      <p>
+        Persistent tabs at the bottom — standard mobile pattern. Instant
+        switching, always visible.
+      </p>
+      <div class="mockup" style="margin-top: 12px">
+        <div
+          class="mockup-body"
+          style="padding: 0; overflow: hidden; border-radius: 8px"
+        >
+          <!-- Phone frame -->
+          <div
+            style="
+              background: #1a1a2e;
+              height: 200px;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              padding: 16px 12px 0;
+            "
+          >
+            <div
+              style="
+                color: #fff;
+                font-size: 13px;
+                font-weight: 600;
+                opacity: 0.9;
+              "
+            >
+              Approvals (3)
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <div
+                style="background: #ffffff15; border-radius: 6px; height: 28px"
+              ></div>
+              <div
+                style="background: #ffffff15; border-radius: 6px; height: 28px"
+              ></div>
+              <div
+                style="background: #ffffff15; border-radius: 6px; height: 28px"
+              ></div>
+            </div>
+          </div>
+          <div
+            style="
+              background: #0f0f23;
+              display: flex;
+              justify-content: space-around;
+              padding: 10px 8px;
+              border-top: 1px solid #ffffff20;
+            "
+          >
+            <div style="text-align: center; color: #7c6fff; font-size: 9px">
+              <div style="font-size: 16px">✓</div>
+              Approvals
+            </div>
+            <div style="text-align: center; color: #666; font-size: 9px">
+              <div style="font-size: 16px">✉</div>
+              Inbox
+            </div>
+            <div style="text-align: center; color: #666; font-size: 9px">
+              <div style="font-size: 16px">👤</div>
+              Contacts
+            </div>
+            <div style="text-align: center; color: #666; font-size: 9px">
+              <div style="font-size: 16px">⚡</div>
+              Activity
+            </div>
+            <div style="text-align: center; color: #666; font-size: 9px">
+              <div style="font-size: 16px">•••</div>
+              More
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="margin-top: 8px; font-size: 13px; color: #888">
+        5 tabs visible, Marketing + Research under "More"
+      </p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="drawer" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Side Drawer</h3>
+      <p>
+        Hamburger menu slides in from the left. Common for apps with many
+        sections.
+      </p>
+      <div class="mockup" style="margin-top: 12px">
+        <div
+          class="mockup-body"
+          style="padding: 0; overflow: hidden; border-radius: 8px"
+        >
+          <div style="background: #1a1a2e; height: 240px; display: flex">
+            <!-- Drawer -->
+            <div
+              style="
+                background: #0f0f23;
+                width: 55%;
+                padding: 16px 12px;
+                border-right: 1px solid #ffffff15;
+              "
+            >
+              <div
+                style="
+                  color: #7c6fff;
+                  font-size: 11px;
+                  font-weight: 700;
+                  margin-bottom: 12px;
+                "
+              >
+                ARTCRM
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <div
+                  style="
+                    color: #fff;
+                    font-size: 11px;
+                    background: #7c6fff25;
+                    padding: 6px 8px;
+                    border-radius: 5px;
+                  "
+                >
+                  ✓ Approvals
+                </div>
+                <div style="color: #999; font-size: 11px; padding: 6px 8px">
+                  ✉ Inbox
+                </div>
+                <div style="color: #999; font-size: 11px; padding: 6px 8px">
+                  👤 Contacts
+                </div>
+                <div style="color: #999; font-size: 11px; padding: 6px 8px">
+                  ⚡ Activity
+                </div>
+                <div style="color: #999; font-size: 11px; padding: 6px 8px">
+                  📊 Marketing
+                </div>
+                <div style="color: #999; font-size: 11px; padding: 6px 8px">
+                  🔍 Research
+                </div>
+              </div>
+            </div>
+            <!-- Main content dimmed -->
+            <div
+              style="
+                background: #1a1a2e;
+                width: 45%;
+                opacity: 0.4;
+                padding: 12px;
+              "
+            >
+              <div style="color: #fff; font-size: 10px">Approvals</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="margin-top: 8px; font-size: 13px; color: #888">
+        All 6 sections always reachable, one tap away
+      </p>
+    </div>
+  </div>
+</div>
