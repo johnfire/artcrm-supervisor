@@ -20,7 +20,7 @@ def inbox_list(
     with db() as conn:
         cur = conn.cursor()
 
-        conditions = ["i.processed = TRUE", "i.received_at >= NOW() - INTERVAL '%s days'"]
+        conditions = ["i.processed = TRUE", "i.received_at >= NOW() - make_interval(days => %s)"]
         params = [days]
 
         if classification:
@@ -56,7 +56,7 @@ def inbox_list(
             """
             SELECT classification, COUNT(*) AS cnt
             FROM inbox_messages
-            WHERE processed = TRUE AND received_at >= NOW() - INTERVAL '%s days'
+            WHERE processed = TRUE AND received_at >= NOW() - make_interval(days => %s)
               AND (classification != 'skipped' OR classification IS NULL)
             GROUP BY classification
             ORDER BY cnt DESC
