@@ -1,4 +1,15 @@
+# NOTE (H-2): this file is NOT honoured by the production build.
+# docker-compose.yml sets `context: ..`, so Docker reads the .dockerignore at the
+# build-context ROOT (../.dockerignore, i.e. /home/chris/ppp2/artcrm/.dockerignore),
+# not this one. The root .dockerignore lives outside any git repo and therefore
+# cannot be committed here — its canonical content is mirrored below and in
+# docs/deployment-secrets.md so it can be recreated if lost.
+#
+# This file is kept only for the case of building with this directory as the context.
+
 .env
+.env.*
+!.env.example
 .git
 __pycache__
 *.pyc
