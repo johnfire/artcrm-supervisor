@@ -486,8 +486,10 @@ def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) ->
             body=f"{contact_name} — {subject}",
             data={"screen": "approvals"},
         )
-    except Exception:
-        pass
+    except Exception as e:
+        # Push is best-effort and must not block queuing — but log so a broken
+        # push pipeline is visible rather than silently failing.
+        logger.warning("queue_for_approval: push notification failed: %s", e)
     return queue_id
 
 
