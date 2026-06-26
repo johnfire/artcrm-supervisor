@@ -7,8 +7,8 @@ from src.db.connection import db
 router = APIRouter(prefix="/api/inbox", tags=["mobile-inbox"])
 
 VALID_CLASSIFICATIONS = {
-    "interested", "warm", "not_interested", "opt_out",
-    "bounced", "auto_reply", "unclassified",
+    "interested", "warm", "not_interested", "not_possible", "opt_out",
+    "other", "skipped",
 }
 
 
@@ -55,3 +55,8 @@ def classify(message_id: int, body: ClassifyBody, role: str = Depends(require_jw
         )
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Message not found")
+
+
+@router.get("/classifications")
+def list_classifications(_role: str = Depends(require_jwt)) -> list[str]:
+    return sorted(VALID_CLASSIFICATIONS)

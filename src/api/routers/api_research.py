@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.api.jwt_auth import require_jwt
+from src.db.connection import db
 
 router = APIRouter(prefix="/api/research", tags=["mobile-research"])
 
@@ -21,6 +22,18 @@ def _run_research(city: str, level: int, country: str) -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+
+
+@router.get("/status")
+def research_status(_role: str = Depends(require_jwt)) -> list[dict]:
+    from src.tools.db import get_all_city_scan_status
+
+    rows = get_all_city_scan_status()
+    for row in rows:
+        for key in ("last_run_at",):
+            if key in row and row[key] is not None:
+                row[key] = row[key].isoformat()
+    return rows
 
 
 @router.post("/run", status_code=202)
