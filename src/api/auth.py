@@ -4,6 +4,8 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 import os
 
+from src.api.throttle import enforce_rate_limit, record_failure, record_success, passwords_match
+
 router = APIRouter()
 
 UI_DIR = Path(__file__).parent.parent / "ui"
@@ -40,12 +42,16 @@ def login_page(request: Request):
 
 @router.post("/login", response_class=HTMLResponse)
 def login_submit(request: Request, password: str = Form(...)):
-    if ADMIN_PASSWORD and password == ADMIN_PASSWORD:
+    key = enforce_rate_limit(request)
+    if passwords_match(password, ADMIN_PASSWORD):
+        record_success(key)
         request.session["role"] = "admin"
         return RedirectResponse(url="/approvals/", status_code=303)
-    if SPECTATOR_PASSWORD and password == SPECTATOR_PASSWORD:
+    if passwords_match(password, SPECTATOR_PASSWORD):
+        record_success(key)
         request.session["role"] = "spectator"
         return RedirectResponse(url="/approvals/", status_code=303)
+    record_failure(key)
     return templates.TemplateResponse(
         "login.html", {"request": request, "error": "Invalid password"}, status_code=401
     )
