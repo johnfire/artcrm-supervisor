@@ -1,6 +1,6 @@
 import logging
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
-from src.api.auth import require_login
+from src.api.auth import require_login, require_admin
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -87,7 +87,7 @@ def approval_list(request: Request):
     return templates.TemplateResponse("approval.html", {"request": request, "items": items, "on_hold": on_hold})
 
 
-@router.post("/{item_id}/approve", response_class=HTMLResponse)
+@router.post("/{item_id}/approve", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def approve(request: Request, item_id: int, note: str = Form(default="")):
     with db() as conn:
         cur = conn.cursor()
@@ -122,7 +122,7 @@ def approve(request: Request, item_id: int, note: str = Form(default="")):
     return templates.TemplateResponse("partials/approval_list.html", {"request": request, "items": items, "on_hold": on_hold})
 
 
-@router.post("/{item_id}/reject", response_class=HTMLResponse)
+@router.post("/{item_id}/reject", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def reject(request: Request, item_id: int, note: str = Form(default="")):
     with db() as conn:
         cur = conn.cursor()
@@ -144,7 +144,7 @@ def reject(request: Request, item_id: int, note: str = Form(default="")):
     return templates.TemplateResponse("partials/approval_list.html", {"request": request, "items": items, "on_hold": on_hold})
 
 
-@router.post("/{item_id}/hold", response_class=HTMLResponse)
+@router.post("/{item_id}/hold", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def hold(request: Request, item_id: int, note: str = Form(default="")):
     with db() as conn:
         cur = conn.cursor()
@@ -170,7 +170,7 @@ def hold(request: Request, item_id: int, note: str = Form(default="")):
     return templates.TemplateResponse("partials/approval_list.html", {"request": request, "items": items, "on_hold": on_hold})
 
 
-@router.post("/{item_id}/delete", response_class=HTMLResponse)
+@router.post("/{item_id}/delete", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def delete_draft(request: Request, item_id: int):
     with db() as conn:
         cur = conn.cursor()
@@ -189,7 +189,7 @@ def dropped_list(request: Request):
     return templates.TemplateResponse("dropped.html", {"request": request, "items": items})
 
 
-@router.post("/{item_id}/edit", response_class=HTMLResponse)
+@router.post("/{item_id}/edit", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def edit_and_approve(
     request: Request,
     item_id: int,

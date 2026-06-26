@@ -1,11 +1,24 @@
 from fastapi import APIRouter, Depends, Request, Query, Form
-from src.api.auth import require_login
+from src.api.auth import require_login, require_admin
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 from typing import Optional
 from src.db.connection import db
+
+
+def _safe_referer(request: Request, default: str = "/contacts/") -> str:
+    """Return the Referer only if it is a relative, same-site path (open-redirect guard).
+
+    A Referer with a scheme or host is attacker-influenced, so we ignore it and fall
+    back to a known-safe relative path.
+    """
+    ref = request.headers.get("referer", default)
+    parsed = urlparse(ref)
+    if parsed.scheme or parsed.netloc or not ref.startswith("/"):
+        return default
+    return ref
 
 router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_login)])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
@@ -216,7 +229,7 @@ def contact_detail(contact_id: int, request: Request, saved: bool = Query(defaul
     })
 
 
-@router.post("/{contact_id}/edit")
+@router.post("/{contact_id}/edit", dependencies=[Depends(require_admin)])
 def contact_edit(
     contact_id: int,
     request: Request,
@@ -283,19 +296,17 @@ def contact_edit(
     return RedirectResponse(url=f"/contacts/{contact_id}?saved=1", status_code=303)
 
 
-@router.post("/{contact_id}/delete")
+@router.post("/{contact_id}/delete", dependencies=[Depends(require_admin)])
 def delete_contact(contact_id: int, request: Request):
     with db() as conn:
         cur = conn.cursor()
         cur.execute("DELETE FROM contacts WHERE id = %s", (contact_id,))
-    ref = request.headers.get("referer", "/contacts/")
-    return RedirectResponse(url=ref, status_code=303)
+    return RedirectResponse(url=_safe_referer(request), status_code=303)
 
 
-@router.post("/{contact_id}/unflag")
+@router.post("/{contact_id}/unflag", dependencies=[Depends(require_admin)])
 def unflag_contact(contact_id: int, request: Request):
     with db() as conn:
         cur = conn.cursor()
         cur.execute("UPDATE contacts SET flagged = FALSE WHERE id = %s", (contact_id,))
-    ref = request.headers.get("referer", "/contacts/")
-    return RedirectResponse(url=ref, status_code=303)
+    return RedirectResponse(url=_safe_referer(request), status_code=303)

@@ -1,6 +1,6 @@
 import logging
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
-from src.api.auth import require_login
+from src.api.auth import require_login, require_admin
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -43,7 +43,7 @@ def drafts_list(request: Request):
     return templates.TemplateResponse("drafts.html", {"request": request, "drafts": drafts})
 
 
-@router.post("/{item_id}/approve", response_class=HTMLResponse)
+@router.post("/{item_id}/approve", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def approve(request: Request, item_id: int, note: str = Form(default="")):
     with db() as conn:
         cur = conn.cursor()
@@ -89,7 +89,7 @@ def approve(request: Request, item_id: int, note: str = Form(default="")):
     return templates.TemplateResponse("partials/drafts_list.html", {"request": request, "drafts": drafts})
 
 
-@router.post("/{item_id}/reject", response_class=HTMLResponse)
+@router.post("/{item_id}/reject", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def reject(request: Request, item_id: int, note: str = Form(default="")):
     with db() as conn:
         cur = conn.cursor()
