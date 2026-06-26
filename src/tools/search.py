@@ -5,10 +5,52 @@ google_maps_search uses Google Places API (New) — requires GOOGLE_MAPS_API_KEY
 web_search uses Google Custom Search API — requires GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_CX.
   Daily limit: 100 queries (free tier). Counter resets at midnight.
 """
+import ipaddress
 import logging
+import socket
+from urllib.parse import urljoin, urlparse
+
 import httpx
 
 logger = logging.getLogger(__name__)
+
+_MAX_REDIRECTS = 5
+
+
+def _is_safe_public_url(url: str) -> bool:
+    """SSRF guard: allow only http(s) URLs whose host resolves to a public IP.
+
+    fetch_page() is called with URLs sourced from world-editable OpenStreetMap tags,
+    Google Places, Brave results and scraped pages. Without this, an attacker-controlled
+    listing (e.g. website=http://169.254.169.254/ or http://127.0.0.1:8000/) would make
+    the app server fetch internal/metadata endpoints.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = parsed.hostname
+    if not host:
+        return False
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except OSError:
+        return False
+    for info in infos:
+        try:
+            addr = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False
+        if (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_reserved
+            or addr.is_multicast
+            or addr.is_unspecified
+        ):
+            return False
+    return True
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 OVERPASS_TIMEOUT = (10, 60)  # (connect, read)
@@ -29,7 +71,14 @@ INDUSTRY_OSM_TAGS: dict[str, list[tuple[str, str]]] = {
 }
 
 
+def _escape_overpass(value: str) -> str:
+    """Escape a value for an Overpass double-quoted string (L-1: avoid query injection)."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def _build_overpass_query(city: str, tags: list[tuple[str, str]], country: str = "DE") -> str:
+    city = _escape_overpass(city)
+    country = _escape_overpass(country)
     area_filter = f'area["name"="{city}"]["ISO3166-2"~"^{country}"]->.a;'
     node_clauses = "\n".join(
         f'  node["{k}"="{v}"](area.a);' for k, v in tags
@@ -197,12 +246,29 @@ def fetch_page(url: str, max_chars: int = 3000) -> str:
         except Exception as e:
             logger.debug("brightdata fetch_page failed for %s: %s — falling back", url, e)
 
-    # Fallback: plain httpx with HTML stripping
+    # Fallback: plain httpx with HTML stripping. This fetches directly from the app
+    # server, so every hop (including redirects) must pass the SSRF guard.
     import re
     try:
-        resp = httpx.get(url, timeout=10, follow_redirects=True, headers={
-            "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)"
-        })
+        current_url = url
+        resp = None
+        for _ in range(_MAX_REDIRECTS + 1):
+            if not _is_safe_public_url(current_url):
+                logger.warning("fetch_page: blocked non-public/invalid URL %s", current_url)
+                return ""
+            resp = httpx.get(current_url, timeout=10, follow_redirects=False, headers={
+                "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)"
+            })
+            if resp.is_redirect:
+                location = resp.headers.get("location")
+                if not location:
+                    break
+                current_url = urljoin(current_url, location)
+                continue
+            break
+        else:
+            logger.warning("fetch_page: too many redirects starting at %s", url)
+            return ""
         resp.raise_for_status()
         html = resp.text
         html = re.sub(r'<(script|style)[^>]*>.*?</\1>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
