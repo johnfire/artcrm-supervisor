@@ -153,7 +153,7 @@ def get_contact(contact_id: int, _role: str = Depends(require_jwt)) -> dict:
 
         cur.execute(
             """
-            SELECT interaction_type, interaction_date, notes
+            SELECT method, direction, summary, outcome, interaction_date
             FROM interactions
             WHERE contact_id = %s
             ORDER BY interaction_date DESC
