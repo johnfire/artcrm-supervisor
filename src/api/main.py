@@ -5,18 +5,24 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
-import os
 
 from src.api.routers import approval, activity, contacts, people, research, inbox, marketing, drafts, api_auth, api_push, api_approvals, api_inbox, api_contacts, api_activity, api_marketing, api_research
 from src.api import auth
+from src.config import SESSION_SECRET, CORS_ALLOW_ORIGINS
 
 app = FastAPI(title="ArtCRM Supervisor", docs_url=None, redoc_url=None)
 
-SESSION_SECRET = os.environ.get("SESSION_SECRET", "change-me-in-production")
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=False)
+# https_only: the session cookie must only travel over HTTPS (TLS terminates at the
+# reverse proxy in front of the app). same_site=lax blocks cross-site POST cookies (CSRF).
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET,
+    https_only=True,
+    same_site="lax",
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOW_ORIGINS,
     allow_methods=["GET", "POST"],
     allow_headers=["Authorization", "Content-Type"],
 )

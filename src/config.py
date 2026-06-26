@@ -4,8 +4,25 @@ from src.mission import Mission
 
 load_dotenv()
 
+
+def _require_secret(name: str) -> str:
+    """Return a required secret/env value or fail fast with a clear, actionable error.
+
+    Used for values that must never silently fall back to a default — a missing one
+    is a misconfiguration we want surfaced loudly at startup, not a weak default that
+    quietly compromises the deployment.
+    """
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(
+            f"{name} is not set. Generate a strong value (e.g. `openssl rand -hex 32`) "
+            f"and add it to the environment / .env before starting."
+        )
+    return value
+
+
 # --- Database ---
-DATABASE_URL: str = os.environ["DATABASE_URL"]
+DATABASE_URL: str = _require_secret("DATABASE_URL")
 
 # --- AI backends ---
 DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
@@ -37,6 +54,17 @@ PROTON_FROM_EMAIL: str = os.getenv("PROTON_FROM_EMAIL", "") or os.getenv("PROTON
 HOST: str = os.getenv("HOST", "127.0.0.1")
 PORT: int = int(os.getenv("PORT", "8000"))
 
+# --- CORS ---
+# Comma-separated list of allowed browser origins for the JSON API. The web UI is
+# same-origin (no CORS needed) and the mobile app is native (CORS-exempt), so this
+# defaults to empty (no cross-origin access). Set only if a browser client on another
+# origin must call the API.
+CORS_ALLOW_ORIGINS: list[str] = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOW_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
 # --- Scout threshold ---
 # Contacts scoring below this are dropped. Start high, lower when you need more volume.
 SCOUT_THRESHOLD: int = int(os.getenv("SCOUT_THRESHOLD", "75"))
@@ -49,8 +77,11 @@ EMAIL_ENABLED: bool = os.getenv("EMAIL_ENABLED", "true").lower() == "true"
 OPEN_BRAIN_URL: str = os.getenv("OPEN_BRAIN_URL", "")
 OPEN_BRAIN_TOKEN: str = os.getenv("OPEN_BRAIN_TOKEN", "")
 
-# --- Mobile API ---
-JWT_SECRET: str = os.getenv("JWT_SECRET", "change-me-in-production")
+# --- Mobile API / web session signing secrets ---
+# Required — no insecure default. These are the only thing standing between the public
+# internet and the API; a known fallback would be a complete auth bypass.
+JWT_SECRET: str = _require_secret("JWT_SECRET")
+SESSION_SECRET: str = _require_secret("SESSION_SECRET")
 
 # --- LLM backend for cheap/high-volume tasks (research, enrichment, scouting) ---
 # Options: deepseek-chat, claude-haiku
